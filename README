@@ -18,7 +18,7 @@ The path to the config file is WEB-INF/classes/nibblonian.properties inside the 
 
     # Jargon-related configuration
 
-    nibblonian.irods.host=192.168.4.130
+    nibblonian.irods.host=127.0.0.1
     nibblonian.irods.port=1247
     nibblonian.irods.user=rods
     nibblonian.irods.password=rods
@@ -36,7 +36,7 @@ There is also a log4j config file located at WEB-INF/classes/log4j.properties in
     log4j.appender.B.layout.ConversionPattern=%d{MM-dd@HH:mm:ss} %-5p (%13F:%L) %3x - %m%n
 
     log4j.appender.A=org.apache.log4j.FileAppender
-    log4j.appender.A.File=${catalina.home}/logs/nibblonian.log
+    log4j.appender.A.File=nibblonian.log
     log4j.appender.A.layout=org.apache.log4j.PatternLayout
     log4j.appender.A.layout.ConversionPattern=%d{MM-dd@HH:mm:ss} %-5p (%13F:%L) %3x - %m%n
 
@@ -90,7 +90,7 @@ Setting "attachment" to 1 will re-add the attachment value to the Content-Dispos
 
 Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"path" : "/tempZone/home/rods/test3"}' http://150.135.10.217:10001/directory/create
+    curl -H "Content-Type:application/json" -d '{"path" : "/tempZone/home/rods/test3"}' http://127.0.0.1:3000/directory/create
 
 The response body:
 
@@ -194,7 +194,7 @@ Response for the first curl command:
 
 Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"sources" : ["/tempZone/home/rods/test1"], "dest" : "/tempZone/home/rods/test"}' http://150.135.10.217:10001/directory/move?user=rods
+    curl -H "Content-Type:application/json" -d '{"sources" : ["/tempZone/home/rods/test1"], "dest" : "/tempZone/home/rods/test"}' http://127.0.0.1:3000/directory/move?user=rods
 
 Response:
 
@@ -211,7 +211,7 @@ Response:
 
 Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"sources" : ["/tempZone/home/rods/test1"], "dest" : "/tempZone/home/rods/test"}' http://150.135.10.217:10001/file/move?user=rods
+    curl -H "Content-Type:application/json" -d '{"sources" : ["/tempZone/home/rods/test1"], "dest" : "/tempZone/home/rods/test"}' http://127.0.0.1:3000/file/move?user=rods
 
 Response:
 
@@ -228,7 +228,7 @@ Response:
 
 Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"source" : "/tempZone/home/rods/test3", "dest" : "/tempZone/home/rods/test2"}' http://150.135.10.217:10001/directory/rename?user=rods
+    curl -H "Content-Type:application/json" -d '{"source" : "/tempZone/home/rods/test3", "dest" : "/tempZone/home/rods/test2"}' http://127.0.0.1:3000/directory/rename?user=rods
 
 Response:
 
@@ -243,7 +243,7 @@ Response:
 
 Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"source" : "/tempZone/home/rods/test3", "dest" : "/tempZone/home/rods/test2"}' http://150.135.10.217:10001/file/rename?user=rods
+    curl -H "Content-Type:application/json" -d '{"source" : "/tempZone/home/rods/test3", "dest" : "/tempZone/home/rods/test2"}' http://127.0.0.1:3000/file/rename?user=rods
 
 Response:
 
@@ -258,7 +258,7 @@ Response:
 
 Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/rods/test2"]}' http://150.135.10.217:10001/directory/delete?user=rods
+    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/rods/test2"]}' http://127.0.0.1:3000/directory/delete?user=rods
 
 Response:
 
@@ -272,7 +272,7 @@ Response:
 
 Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/rods/test2"]}' http://150.135.10.217:10001/file/delete?user=rods
+    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/rods/test2"]}' http://127.0.0.1:3000/file/delete?user=rods
 
 Response:
 
@@ -286,7 +286,7 @@ Response:
 
 Curl command:
 
-    curl http://150.135.10.217:10001/file/preview?user=johnw&path=/iplant/home/johnw/LICENSE.txt
+    curl http://127.0.0.1:3000/file/preview?user=johnw&path=/iplant/home/johnw/LICENSE.txt
 
 Response:
 
@@ -299,7 +299,7 @@ Response:
 
 Curl command:
 
-    curl http://150.135.10.217:10001/file/manifest?user=johnw&path=/iplant/home/johnw/LICENSE.txt
+    curl http://127.0.0.1:3000/file/manifest?user=johnw&path=/iplant/home/johnw/LICENSE.txt
 
 Response:
 
@@ -324,7 +324,7 @@ The /exists endpoint allows the caller to check for the existence of a set of fi
 
 Curl command:
 
-    curl -H "Content-type:application/json" -d '{"paths" : ["/iplant/home/wregglej/pom.xml", "/iplant/home/wregglej/pom.xml2"]}' 'http://services-2.iplantcollaborative.org:14444/nibblonian/exists?user=wregglej'
+    curl -H "Content-type:application/json" -d '{"paths" : ["/iplant/home/wregglej/pom.xml", "/iplant/home/wregglej/pom.xml2"]}' 'http://127.0.0.1:3000/exists?user=wregglej'
 
 Response:
 
