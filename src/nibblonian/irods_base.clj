@@ -1,7 +1,7 @@
 (ns nibblonian.irods-base
-  (:require [clojure.contrib.logging :as log])
+  (:require [clojure.tools.logging :as log])
   (:import [org.irods.jargon.core.connection IRODSAccount]
-	   [org.irods.jargon.core.pub IRODSFileSystem]))
+           [org.irods.jargon.core.pub IRODSFileSystem]))
 
 ; Configuration settings for iRODS/Jargon
 (def host (atom ""))

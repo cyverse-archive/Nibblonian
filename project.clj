@@ -1,9 +1,13 @@
 (defproject nibblonian "0.0.5-SNAPSHOT"
   :description "RESTful interface into iRODS."
-  :dependencies [[org.clojure/clojure "1.2.0"]
-                 [org.clojure/clojure-contrib "1.2.0"]
+  :dependencies [[org.clojure/clojure "1.3.0"]
                  [org.clojure/java.jdbc "0.1.0"]
+                 [org.clojure/data.json "0.1.1"]
+                 [org.clojure/tools.logging "0.2.3"]
+                 [org.clojure/java.classpath "0.1.0"]
+                 [org.clojure/data.codec "0.1.0"]
                  [postgresql/postgresql "9.0-801.jdbc4"]
+                 [org.iplantc/clojure-commons "1.1.0-SNAPSHOT"]
                  [compojure "0.6.5"]
                  [org.irods.jargon/jargon-core "3.0.1-SNAPSHOT"]
                  [org.irods.jargon/jargon-test "3.0.1-SNAPSHOT"]

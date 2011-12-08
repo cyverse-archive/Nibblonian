@@ -7,8 +7,7 @@
          multipart-params
          cookies
          session]
-        [clojure.contrib.java-utils]
-        [clojure.contrib.classpath]
+        [clojure.java.classpath]
         [nibblonian.error-codes])
   (:require [compojure.route :as route]
             [compojure.handler :as handler]
@@ -19,24 +18,16 @@
             [nibblonian.irods-actions :as irods-actions]
             [nibblonian.query-params :as qp]
             [nibblonian.json-body :as jb]
-            [clojure.contrib.json :as json]
-            [clojure.contrib.duck-streams :as ds]
-            [clojure.contrib.logging :as log]
-            [clojure.contrib.string :as string]
+            [clojure.data.json :as json]
+            [clojure.java.io :as ds]
+            [clojure.tools.logging :as log]
+            [clojure.string :as string]
+            [clojure-commons.props :as props]
             [swank.swank])
   (:import [org.irods.jargon.core.exception JargonRuntimeException JargonException]))
 
-(defn find-properties-file
-  "Searches the classpath for the named properties file."
-  [prop-name]
-  (. (. (. (. Thread currentThread) getContextClassLoader) getResource prop-name) getFile))
-
 ; Reads in the properties file and assigns props to the map
-(def props
-  (let [prop-filename "nibblonian.properties"
-        prop-path (find-properties-file prop-filename)
-        prop (if (nil? prop-path) "resources/nibblonian.properties" prop-path)]
-    (read-properties prop)))
+(def props (props/parse-properties "nibblonian.properties"))
 
 (def max-retries
   (java.lang.Integer/parseInt
@@ -71,7 +62,7 @@
 (if (contains? props "nibblonian.swank.enabled")
   (let [enabled (get props "nibblonian.swank.enabled")
         swank-port (if (contains? props "nibblonian.swank.port")
-              (get props "nibblonian.swank.port") nil)]
+                     (get props "nibblonian.swank.port") nil)]
     (if (. enabled equals "true")
       (if (not (nil? swank-port))
         (swank.swank/start-repl swank-port)

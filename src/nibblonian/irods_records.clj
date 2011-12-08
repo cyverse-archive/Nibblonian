@@ -1,9 +1,9 @@
 (ns nibblonian.irods-records
   (:use [nibblonian.irods-base]
         [nibblonian.utils])
-  (:require [clojure.contrib.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [ring.util.codec :as codec]
-            [clojure.contrib.base64 :as base64])
+            [clojure.data.codec.base64 :as base64])
   (:import [org.irods.jargon.core.exception DataNotFoundException]
            [org.irods.jargon.core.protovalues FilePermissionEnum]
            [org.irods.jargon.core.pub.domain AvuData]))
@@ -134,7 +134,7 @@
 
     Returns: Boolean"
    (log/debug (str "paths-exist? " paths))
-   (== 0 (count (filter (fn [p] (not (exists? j p))) paths))))
+   (== 0 (count (for [path paths :when (not (exists? j path))] path))))
   
   (is-file?
    [j path]
@@ -379,7 +379,7 @@
   (transform-map-for-deletion
    [m path avu-map]
    (let [new-map {:attr  (:attr avu-map)
-                  :value (base64/encode-str (:value avu-map))
+                  :value (base64/encode (bytes (:value avu-map)))
                   :unit  (:unit avu-map)}]
      (set-metadata m path (:attr new-map) (:value new-map) (:unit avu-map))
      new-map))

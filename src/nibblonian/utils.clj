@@ -1,5 +1,5 @@
 (ns nibblonian.utils
-  (:require [clojure.contrib.logging :as log])
+  (:require [clojure.tools.logging :as log])
   (:import [java.io File]))
 
 (defn path-join
