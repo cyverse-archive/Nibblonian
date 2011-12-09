@@ -51,19 +51,23 @@
            fileSystem     (:fileSystem context)]
        (cond 
          (not (user-exists? jargon user))
-         (clean-return fileSystem {:action "list-dir"
-                                   :status "failure"
-                                   :error_code ERR_NOT_A_USER
-                                   :reason "user does not exist"
-                                   :user user})
+         (clean-return 
+           fileSystem 
+           {:action "list-dir"
+            :status "failure"
+            :error_code ERR_NOT_A_USER
+            :reason "user does not exist"
+            :user user})
          
          (not (is-readable? jargon user path))
-         (clean-return fileSystem {:action "list-dir"
-                                   :status "failure"
-                                   :error_code ERR_NOT_READABLE
-                                   :reason "is not readable"
-                                   :path path
-                                   :user user})
+         (clean-return 
+           fileSystem 
+           {:action "list-dir"
+            :status "failure"
+            :error_code ERR_NOT_READABLE
+            :reason "is not readable"
+            :path path
+            :user user})
          
          :else
          (let [data   (. lister listDataObjectsAndCollectionsUnderPath (rm-last-slash path))
@@ -126,10 +130,12 @@
       (let [ifile (file jargon path)]
         (. fileSystemAO mkdir ifile true)
         (set-owner jargon path user)
-        (clean-return fileSystem {:action "create" 
-                                  :path path 
-                                  :status "success" 
-                                  :permissions (collection-perm-map jargon user path)})))))
+        (clean-return 
+          fileSystem 
+          {:action "create" 
+           :path path 
+           :status "success" 
+           :permissions (collection-perm-map jargon user path)})))))
 
 (defn- delete-dir
   "Deletes a directory in iRODS.
@@ -197,19 +203,25 @@
     (if (reduce (fn [f s] (and f s)) (map (fn [p] (is-dir? jargon p)) paths))
       (let [results (delete user paths delete-dir fileSystemAO jargon)]
         (if (== 0 (count results))
-          (clean-return fileSystem {:action "delete-dirs" :status "success" :paths paths})
+          (clean-return 
+            fileSystem 
+            {:action "delete-dirs" 
+             :status "success" 
+             :paths paths})
           (clean-return 
             fileSystem 
             {:action "delete-dirs" 
              :status "failure"
              :error_code ERR_INCOMPLETE_DELETION
              :paths results})))
-      (clean-return fileSystem (merge
-                                {:action "delete-dirs"
-                                 :status "failure"
-                                 :error_code ERR_NOT_A_FOLDER
-                                 :reason "is not a dir"
-                                 :paths  (for [p paths :when (not (is-dir? jargon p))] p)})))))
+      (clean-return 
+        fileSystem 
+        (merge
+          {:action "delete-dirs"
+           :status "failure"
+           :error_code ERR_NOT_A_FOLDER
+           :reason "is not a dir"
+           :paths  (for [p paths :when (not (is-dir? jargon p))] p)})))))
 
 (defn delete-files
   "Performs some validation and calls delete.
@@ -332,7 +344,12 @@
       :else
       (let [results (move user sources dest move-dir fileSystemAO jargon)]
         (if (== 0 (count results))
-          (clean-return fileSystem {:action "move-dirs" :status "success" :sources sources :dest dest})
+          (clean-return 
+            fileSystem 
+            {:action "move-dirs" 
+             :status "success" 
+             :sources sources 
+             :dest dest})
           (clean-return 
             fileSystem 
             {:action "move-dirs" 
@@ -560,13 +577,19 @@
         fileFactory    (:fileFactory context)]
     (cond
       (not (exists? jargon file-path))
-      (clean-return fileSystem {:status 404 :body (str "File " file-path " does not exist.")})
+      (clean-return 
+        fileSystem 
+        {:status 404 
+         :body (str "File " file-path " does not exist.")})
       
       (is-readable? jargon user file-path)
       {:status 200 :body (input-stream file-path fileFactory jargon)}
       
       :else
-      (clean-return fileSystem {:status 400 :body (str "File " file-path " isn't writeable.")}))))
+      (clean-return 
+        fileSystem 
+        {:status 400 
+         :body (str "File " file-path " isn't writeable.")}))))
 
 (defn load-from-stream
   "Dumps the contents of in-stream (an InputStream) into the file represented by the
@@ -624,12 +647,14 @@
           in-stream (FileInputStream. in-file)
           ddir      (add-trailing-slash dest-dir)
           result    (load-from-stream user ddir file-name in-stream false fileFactory jargon fileSystem)]
-      (clean-return fileSystem (merge
-                                 {:action "file-upload"
-                                  :label (basename dest-path)
-                                  :type ""
-                                  :description ""}
-                                 result)))))
+      (clean-return 
+        fileSystem 
+        (merge
+          {:action "file-upload"
+           :label (basename dest-path)
+           :type ""
+           :description ""}
+          result)))))
 
 (defn load-from-url
   "Loads the contents of the file pointed to by url-string into the file-path created
