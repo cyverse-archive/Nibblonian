@@ -288,6 +288,7 @@
         fileSystem     (:fileSystem context)
         fileSystemAO   (:fileSystemAO context)
         path-list      (conj sources dest)
+        dest-paths     (into [] (map (fn [s] (path-join dest (basename s))) sources))
         dirs?          (reduce 
                          (fn [f s] (and f s))
                          (map (fn [d] (is-dir? jargon d)) path-list))]
@@ -310,12 +311,12 @@
        :paths (for [path path-list :when (not (is-writeable? jargon user path))] path)}
       
       ;Make sure that the destination directories don't exist already.
-      (paths-exist? jargon (for [s sources] (dest-path s dest)))
+      (not (every? false? (into [] (map (fn [d] (exists? jargon d)) dest-paths))))
       {:action "move-dirs" 
        :status "failure" 
        :reason "exists"
        :error_code ERR_EXISTS
-       :paths (for [path (for [s sources] (dest-path s dest)) :when (exists? jargon path)] path)}
+       :paths (filter (fn [p] (exists? jargon p)) dest-paths)}
       
       ;Make sure that everything is a directory.
       (not dirs?)
@@ -349,6 +350,7 @@
         fileSystem     (:fileSystem context)
         fileSystemAO   (:fileSystemAO context)
         path-list      (conj sources dest)
+        dest-paths     (into [] (map (fn [s] (path-join dest (basename s))) sources))
         files?         (reduce 
                          (fn [f s] (and f s)) 
                          (map (fn [s] (is-file? jargon s)) sources))]
@@ -381,12 +383,12 @@
          :reason "is not a directory"})
       
       ;Make sure that the destination directories don't exist already.
-      (paths-exist? jargon (for [s sources] (dest-path s dest)))
+      (not (every? false? (into [] (map (fn [d] (exists? jargon d)) dest-paths))))
       {:action "move-files" 
        :status "failure"
        :error_code ERR_EXISTS
        :reason "exists" 
-       :paths (for [path (for [s sources] (dest-path s dest)) :when (exists? jargon path)] path)}
+       :paths (filter (fn [p] (exists? jargon p)) dest-paths)}
       
       ;Make sure the sources are actually files.
       (not files?)
