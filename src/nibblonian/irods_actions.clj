@@ -308,27 +308,33 @@
     (cond
       ;Make sure that all paths in the request actually exist.
       (not (paths-exist? jargon path-list))
-      {:action "move-dirs" 
-       :status "failure" 
-       :error_code ERR_DOES_NOT_EXIST 
-       :reason "does not exist" 
-       :paths (for [path path-list :when (not (exists? jargon path))] path)}
+      (clean-return 
+        fileSystem
+        {:action "move-dirs" 
+         :status "failure" 
+         :error_code ERR_DOES_NOT_EXIST 
+         :reason "does not exist" 
+         :paths (for [path path-list :when (not (exists? jargon path))] path)})
       
       ;Make sure all the paths in the request are writeable.
       (not (paths-writeable? jargon user path-list))
-      {:action "move-dirs" 
-       :status "failure" 
-       :error_code ERR_NOT_WRITEABLE 
-       :reason "is not writeable" 
-       :paths (for [path path-list :when (not (is-writeable? jargon user path))] path)}
+      (clean-return 
+        fileSystem
+        {:action "move-dirs" 
+         :status "failure" 
+         :error_code ERR_NOT_WRITEABLE 
+         :reason "is not writeable" 
+         :paths (for [path path-list :when (not (is-writeable? jargon user path))] path)})
       
       ;Make sure that the destination directories don't exist already.
       (not (every? false? (into [] (map (fn [d] (exists? jargon d)) dest-paths))))
-      {:action "move-dirs" 
-       :status "failure" 
-       :reason "exists"
-       :error_code ERR_EXISTS
-       :paths (filter (fn [p] (exists? jargon p)) dest-paths)}
+      (clean-return 
+        fileSystem
+        {:action "move-dirs" 
+         :status "failure" 
+         :reason "exists"
+         :error_code ERR_EXISTS
+         :paths (filter (fn [p] (exists? jargon p)) dest-paths)})
       
       ;Make sure that everything is a directory.
       (not dirs?)
@@ -375,19 +381,23 @@
     (cond
       ;Make sure that all paths in the request actually exist.
       (not (paths-exist? jargon path-list))
-      {:action "move-files" 
-       :status "failure" 
-       :reason "does not exist"
-       :error_code ERR_DOES_NOT_EXIST
-       :paths (for [path path-list :when (not (exists? jargon path))] path)}
+      (clean-return 
+        fileSystem
+        {:action "move-files" 
+         :status "failure" 
+         :reason "does not exist"
+         :error_code ERR_DOES_NOT_EXIST
+         :paths (for [path path-list :when (not (exists? jargon path))] path)})
       
       ;Make sure all the paths in the request are writeable.
       (not (paths-writeable? jargon user path-list))
-      {:action "move-files"
-       :status "failure" 
-       :reason "is not writeable"
-       :error_code ERR_NOT_WRITEABLE
-       :paths (for [path path-list :when (not (is-writeable? jargon user path))] path)}
+      (clean-return 
+        fileSystem 
+        {:action "move-files"
+         :status "failure" 
+         :reason "is not writeable"
+         :error_code ERR_NOT_WRITEABLE
+         :paths (for [path path-list :when (not (is-writeable? jargon user path))] path)})
       
       ;Make sure the destination is actually a directory.
       (not (is-dir? jargon dest))
@@ -401,11 +411,13 @@
       
       ;Make sure that the destination directories don't exist already.
       (not (every? false? (into [] (map (fn [d] (exists? jargon d)) dest-paths))))
-      {:action "move-files" 
-       :status "failure"
-       :error_code ERR_EXISTS
-       :reason "exists" 
-       :paths (filter (fn [p] (exists? jargon p)) dest-paths)}
+      (clean-return 
+        fileSystem
+        {:action "move-files" 
+         :status "failure"
+         :error_code ERR_EXISTS
+         :reason "exists" 
+         :paths (filter (fn [p] (exists? jargon p)) dest-paths)})
       
       ;Make sure the sources are actually files.
       (not files?)
@@ -456,17 +468,21 @@
     (log/debug (str "rename-file " user " " source " " dest))
     (cond
       (not (exists? jargon source))
-      {:reason "exists" 
-       :path source 
-       :status "failure"
-       :error_code ERR_DOES_NOT_EXIST}
+      (clean-return 
+        fileSystem 
+        {:reason "exists" 
+         :path source 
+         :status "failure"
+         :error_code ERR_DOES_NOT_EXIST})
       
       (not (is-writeable? jargon user source))
-      {:action "rename-file" 
-       :status "failure" 
-       :reason "not writeable"
-       :error_code ERR_NOT_WRITEABLE
-       :path source}
+      (clean-return 
+        fileSystem 
+        {:action "rename-file" 
+         :status "failure" 
+         :reason "not writeable"
+         :error_code ERR_NOT_WRITEABLE
+         :path source})
       
       (not (is-file? jargon source))
       (clean-return 
@@ -478,11 +494,13 @@
          :reason "is not a file."})
       
       (exists? jargon dest)
-      {:action "rename-file" 
-       :status "failure" 
-       :error_code ERR_EXISTS
-       :reason "exists" 
-       :path dest}
+      (clean-return 
+        fileSystem
+        {:action "rename-file" 
+         :status "failure" 
+         :error_code ERR_EXISTS
+         :reason "exists" 
+         :path dest})
       
       :else
       (let [results (rename-func user source dest file-rename fileSystemAO jargon)]
@@ -507,18 +525,22 @@
     (log/debug (str "rename-directory " user " " source " " dest))
     (cond
       (not (exists? jargon source))
-      {:action "rename-directory" 
-       :status "failure" 
-       :reason "does not exist"
-       :error_code ERR_DOES_NOT_EXIST
-       :path source}
+      (clean-return 
+        fileSystem 
+        {:action "rename-directory" 
+         :status "failure" 
+         :reason "does not exist"
+         :error_code ERR_DOES_NOT_EXIST
+         :path source})
       
       (not (is-writeable? jargon user source))
-      {:action "rename-directory" 
-       :status "failure" 
-       :reason "not writeable"
-       :error_code ERR_NOT_WRITEABLE
-       :path source}
+      (clean-return 
+        fileSystem
+        {:action "rename-directory" 
+         :status "failure" 
+         :reason "not writeable"
+         :error_code ERR_NOT_WRITEABLE
+         :path source})
       
       (not (is-dir? jargon source))
       (clean-return 
@@ -530,11 +552,13 @@
          :reason "is not a directory"})
       
       (exists? jargon dest)
-      {:action "rename-directory" 
-       :status "failure" 
-       :reason "exists"
-       :error_code ERR_EXISTS
-       :path dest}
+      (clean-return 
+        fileSystem 
+        {:action "rename-directory" 
+         :status "failure" 
+         :reason "exists"
+         :error_code ERR_EXISTS
+         :path dest})
       
       :else
       (let [results (rename-func user source dest dir-rename fileSystemAO jargon)]
@@ -583,7 +607,10 @@
          :body (str "File " file-path " does not exist.")})
       
       (is-readable? jargon user file-path)
-      {:status 200 :body (input-stream file-path fileFactory jargon)}
+      (clean-return 
+        fileSystem 
+        {:status 200 
+         :body (input-stream file-path fileFactory jargon)})
       
       :else
       (clean-return 
@@ -598,12 +625,20 @@
   (log/debug (str "load-from-stream " user " " dest-dir " " file-name " " in-stream))
   (cond
     (not (is-dir? jargon dest-dir))
-    {:status "failure" :reason "Is not a directory." :id dest-dir}
+    (clean-return 
+      fileSystem 
+      {:status "failure" 
+       :reason "Is not a directory." 
+       :id dest-dir})
     
     (not (is-writeable? jargon user dest-dir))
-    {:status "failure" :reason "not writeable" :id dest-dir}
+    (clean-return 
+      fileSystem 
+      {:status "failure" 
+       :reason "not writeable" 
+       :id dest-dir})
     
-    threaded
+    (true? threaded)
     (do 
       (future
         (let [out              (output-stream (path-join dest-dir file-name) fileFactory jargon)
