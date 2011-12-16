@@ -14,7 +14,7 @@
             [ring.util.response :as rsp-utils]
             [ring.util.codec :as cdc]
             [nibblonian.utils :as utils]
-            [nibblonian.irods-base :as irods-base]
+            [nibblonian.jargon :as jargon]
             [nibblonian.irods-actions :as irods-actions]
             [nibblonian.query-params :as qp]
             [nibblonian.json-body :as jb]
@@ -22,8 +22,7 @@
             [clojure.java.io :as ds]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
-            [clojure-commons.props :as props]
-            [swank.swank])
+            [clojure-commons.props :as props])
   (:import [org.irods.jargon.core.exception JargonRuntimeException JargonException]))
 
 ; Reads in the properties file and assigns props to the map
@@ -49,7 +48,7 @@
   (get props "nibblonian.app.community-data"))
 
 ; Sets up the connection to iRODS through jargon-core.
-(irods-base/init-irods
+(jargon/init
  (get props "nibblonian.irods.host")
  (get props "nibblonian.irods.port")
  (get props "nibblonian.irods.user")
@@ -57,16 +56,6 @@
  (get props "nibblonian.irods.home")
  (get props "nibblonian.irods.zone")
  (get props "nibblonian.irods.defaultResource"))
-
-;;; Sets up the embedded swank REPL.
-(if (contains? props "nibblonian.swank.enabled")
-  (let [enabled (get props "nibblonian.swank.enabled")
-        swank-port (if (contains? props "nibblonian.swank.port")
-                     (get props "nibblonian.swank.port") nil)]
-    (if (. enabled equals "true")
-      (if (not (nil? swank-port))
-        (swank.swank/start-repl swank-port)
-        (swank.swank/start-repl)))))
 
 (defn json?
   "Checks to make sure that a string contains JSON."
@@ -422,48 +411,6 @@
         :else
         (create-response (move-func user sources dest))))))
 
-(defn do-urlupload
-  "Performs a url upload.
-
-   Function Parameters:
-     request - Ring request map.
-
-   Request Parameters:
-     user - Query string value containing a username.
-     dest - JSON field containing the destination path.
-     address - JSON field containing the URL to slurp in."
-  [request]
-  (log/debug "do-urlupload")
-  (log/debug (str "BODY:  " (:body request)))
-  (cond
-    (not (query-param? request "user"))
-    (bad-query "user" "urlupload")
-    
-    (not (valid-body? request {:dest string? :address string?}))
-    (create-response (bad-body request {:dest string? :address string?})) 
-    
-    :else
-    (let [body-json (:body request)
-          user (query-param request "user")
-          dest (:dest body-json)
-          address (:address body-json)]
-      (log/debug (str "Body: " (json/json-str body-json)))
-      
-      (cond
-        (super-user? user)
-        (create-response
-          {:action "urlupload"
-           :status "failure"
-           :error_code ERR_NOT_AUTHORIZED
-           :reason "action not allowed by that user"
-           :user user})
-        
-        (= "failure" (:status body-json))
-        (create-response (merge {:action "urlupload"} body-json))
-        
-        :else
-        (create-response (irods-actions/load-from-url user (utils/dirname dest) (utils/basename dest) address))))))
-
 (defn do-create
   "Performs a directory creation.
 
@@ -588,28 +535,6 @@
   [request]
   (log/debug "multipart-inputfile")
   (:tempfile (form-param request "file")))
-
-(defn do-upload
-  "Handles a file upload.
-
-   Request Parameters:
-     user - form-data field containing a username.
-     file - form-data field containing file data.
-     dest - form-data field containing the destination path in iRODS."
-  [request]
-  (log/debug "do-upload")
-  (let [dest-path (form-param request "dest")
-        user (form-param request "user")
-        input-file (multipart-inputfile request)]
-    (if (not (super-user? user))
-      (create-response (irods-actions/load-from-file user dest-path input-file) "text/html")
-      (create-response
-        {:action "upload"
-         :status "failure"
-         :error_code ERR_NOT_AUTHORIZED
-         :reason "action not allowed by user"
-         :user user}
-        "text/html"))))
 
 (defn attachment?
   [request]
@@ -755,12 +680,6 @@
   
   (POST "/file/move" request
         (retry do-move request irods-actions/move-files))
-  
-  (POST "/file/urlupload" request
-        (retry do-urlupload request))
-  
-  (POST "/file/upload" request
-        (retry do-upload request))
   
   (GET "/file/download" request
        (retry do-download request))
