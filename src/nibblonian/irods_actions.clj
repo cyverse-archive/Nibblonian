@@ -356,7 +356,7 @@
   (with-jargon
     (let [user-home (path-join staging-dir user)]
       (if (not (exists? user-home))
-        (. (file user-home) mkdirs))
+        (mkdirs user-home))
       user-home)))
 
 (defn fail-resp

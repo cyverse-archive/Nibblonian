@@ -450,6 +450,10 @@
   (let [fileSystemAO (:fileSystemAO cm)]
     (. fileSystemAO mkdir (file dir-path) true)))
 
+(defn mkdirs
+  [dir-path]
+  (. (file dir-path) mkdirs))
+
 (defn delete
   [a-path]
   (let [fileSystemAO (:fileSystemAO cm)]
