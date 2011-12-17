@@ -13,7 +13,7 @@
             [compojure.handler :as handler]
             [ring.util.response :as rsp-utils]
             [ring.util.codec :as cdc]
-            [nibblonian.utils :as utils]
+            [clojure-commons.file-utils :as utils]
             [nibblonian.jargon :as jargon]
             [nibblonian.irods-actions :as irods-actions]
             [nibblonian.query-params :as qp]

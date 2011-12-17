@@ -1,5 +1,5 @@
 (ns nibblonian.jargon
-  (:use [nibblonian.utils])
+  (:use [clojure-commons.file-utils])
   (:require [clojure.tools.logging :as log]
             [ring.util.codec :as codec]
             [clojure.data.codec.base64 :as base64])

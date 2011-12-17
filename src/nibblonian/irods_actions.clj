@@ -6,7 +6,7 @@
             [clojure.data.json :as json]
             [clojure.string :as string])
   (:use [nibblonian.jargon]
-        [nibblonian.utils]
+        [clojure-commons.file-utils]
         [nibblonian.error-codes]))
 
 (defn filter-unreadable
