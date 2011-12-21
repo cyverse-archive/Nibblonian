@@ -18,6 +18,8 @@
             [nibblonian.irods-actions :as irods-actions])
   (:import [org.irods.jargon.core.exception JargonRuntimeException JargonException]))
 
+(init)
+
 (defn- do-apply
   [func & args]
   (let [retval {:succeeded true :retval nil :exception nil}]
