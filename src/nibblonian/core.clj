@@ -81,7 +81,7 @@
    value was passed in."
   [a-map map-spec]
   (log/debug (str "invalid-fields " a-map " " map-spec))
-  (filter (fn [f] (not (nil? f)))
+  (filter (comp not nil?)
           (for [[field-name validator?] map-spec]
             (if (contains? a-map field-name)
               (if (validator? (get a-map field-name)) nil field-name)
@@ -210,11 +210,11 @@
   (loop [num-tries 0]
     (let [attempt (apply do-apply (concat [func] args))]
       (if (and (not (:succeeded attempt)) (< num-tries max-retries))
-	(do (Thread/sleep retry-sleep)
-   (recur (+ num-tries 1)))
-	(if (:succeeded attempt)
-	  (:retval attempt)
-	  (throw (:exception attempt)))))))
+        (do (Thread/sleep retry-sleep)
+          (recur (+ num-tries 1)))
+        (if (:succeeded attempt)
+          (:retval attempt)
+          (throw (:exception attempt)))))))
 
 (defn super-user?
   [username]
@@ -243,16 +243,37 @@
   (log/debug "do-homedir")
   (if (not (query-param? request "user"))
     (bad-query "user" "home")
-    (let [user (query-param request "user")]
-      (irods-actions/user-home-dir (get props "nibblonian.irods.home") user false))))
+    (let [user       (query-param request "user")
+          irods-home (get props "nibblonian.irods.home")]
+      (irods-actions/user-home-dir irods-home user false))))
 
 (defn- get-home-dir
   [user]
-  (irods-actions/user-home-dir (get props "nibblonian.irods.home") user true))
+  (let [irods-home (get props "nibblonian.irods.home")]
+    (irods-actions/user-home-dir irods-home user true)))
 
 (defn- include-files
   [file-param]
-  (not (= "0" file-param)))
+  (not= "0" file-param))
+
+(defn- include-files?
+  [request]
+  (if (query-param? request "includefiles")
+    (include-files (query-param request "includefiles"))
+    false))
+
+(defn- gen-comm-data
+  [user inc-files]
+  (let [cdata (dir-list user community-data inc-files)]
+    (assoc cdata :label "Community Data")))
+
+(defn- gen-status
+  [comm-data home-data]
+  (let [not-cdata? (= (:status comm-data) "failure")
+        not-hdata? (= (:status home-data) "failure")]
+    (if (or not-cdata? not-hdata?)
+      "failure"
+      "success")))
 
 (defn do-directory
   "Performs a list-dirs command.
@@ -269,14 +290,10 @@
     ;;; request and the community listing should be included.
     (not (query-param? request "path")) 
     (let [user      (query-param request "user")
-          inc-files (if (query-param? request "includefiles")
-                      (include-files (query-param request "includefiles"))
-                      false)
-          comm-data (assoc (dir-list user community-data inc-files) :label "Community Data")
+          inc-files (include-files? request)
+          comm-data (gen-comm-data user inc-files)
           home-data (dir-list user (get-home-dir user) inc-files) 
-          status    (if (or (= (:status comm-data) "failure") (= (:status home-data) "failure"))
-                      "failure"
-                      "success")]
+          status    (gen-status comm-data home-data)]
       (create-response
         {:status status
          :roots [home-data comm-data]}))
@@ -285,9 +302,7 @@
     :else 
     (let [user      (query-param request "user")
           path      (query-param request "path")
-          inc-files (if (query-param? request "includefiles")
-                      (include-files (query-param request "includefiles"))
-                      false)]
+          inc-files (include-files? request)]
       (create-response (dir-list user path inc-files)))))
 
 (defn do-rename
