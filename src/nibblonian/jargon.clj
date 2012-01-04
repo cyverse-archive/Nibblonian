@@ -423,8 +423,9 @@
 
 (defn transform-map-for-deletion
   [path avu-map]
-  (let [new-map {:attr  (:attr avu-map)
-                 :value (base64/encode (bytes (:value avu-map)))
+  (let [str64   (comp #(java.lang.String. %) base64/encode #(.getBytes %))
+        new-map {:attr  (:attr avu-map)
+                 :value (str64 (:value avu-map))
                  :unit  (:unit avu-map)}]
     (set-metadata path (:attr new-map) (:value new-map) (:unit avu-map))
     new-map))
@@ -432,10 +433,10 @@
 (defn delete-metadata
   [dir-path attr]
   "Deletes an avu from dir-path."
-  (let [fattr (first (get-attribute dir-path attr))
-        avu (map2avu (transform-map-for-deletion dir-path fattr))
-        cao (:collectionAO cm)
-        dao (:dataObjectAO cm)
+  (let [fattr  (first (get-attribute dir-path attr))
+        avu    (map2avu fattr)
+        cao    (:collectionAO cm)
+        dao    (:dataObjectAO cm)
         ao-obj (if (is-dir? dir-path) cao dao)]
     (log/warn (str "Deleting AVU attribute " attr " for path " dir-path))
     (. ao-obj deleteAVUMetadata dir-path avu)))
@@ -465,14 +466,14 @@
   [source dest]
   (let [fileSystemAO (:fileSystemAO cm)
         src          (file source)
-        dst          (file (path-join source dest))]
+        dst          (file dest)]
     (if (is-file? source)
       (. fileSystemAO renameFile src dst)
       (. fileSystemAO renameDirectory src dst))))
 
 (defn move-all
   [sources dest]
-  (into [] (map (fn [src] (move src dest)) sources)))
+  (into [] (map #(move %1 (path-join dest (basename %1))) sources)))
 
 (defn output-stream
   "Returns an FileOutputStream for a file in iRODS pointed to by 'output-path'."

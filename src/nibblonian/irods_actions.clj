@@ -126,7 +126,7 @@
       (not (paths-exist? paths))
       {:action action
        :reason "does not exist" 
-       :paths (for [path paths :when (not (exists? path))] path)
+       :paths (into [] (for [path paths :when (not (exists? path))] path))
        :status "failure"
        :error_code ERR_DOES_NOT_EXIST} 
       
@@ -134,26 +134,28 @@
       (not (paths-writeable? user paths))
       {:action action
        :reason "is not writeable" 
-       :paths (for [path paths :when (not (is-writeable? user path))] path) 
+       :paths (into [] (for [path paths :when (not (is-writeable? user path))] path)) 
        :status "failure"
        :error_code ERR_NOT_WRITEABLE}
       
       ;Make sure all of the paths are directories.
-      (not (reduce (fn [f s] (and f s)) (map (fn [p] (type-func? p)) paths)))
+      (not (every? true? (map #(type-func? %) paths)))
       {:action action
        :status "failure"
        :error_code type-error
        :reason "is not a dir"
-       :paths (for [p paths :when (not (type-func? p))] p)}
+       :paths (into [] (for [p paths :when (not (type-func? p))] p))}
       
       :else
-      (let [results (map delete paths)]
-        (if (== 0 (count results))
-          {:action action :status "success" :paths paths}
-          {:action action 
-           :status "failure"
-           :error_code ERR_INCOMPLETE_DELETION
-           :paths results})))))
+      (do (into [] (map delete paths))
+        {:action action :status "success" :paths paths}))))
+      ;;(let [results ]
+        ;;(if (== 0 (count results))
+          ;;{:action action :status "success" :paths paths}
+          ;;{:action action 
+           ;;:status "failure"
+           ;;:error_code ERR_INCOMPLETE_DELETION
+           ;;:paths results})))))
 
 (defn delete-dirs
   [user paths]
@@ -169,10 +171,8 @@
   [user sources dest type-func? action type-error]
   (with-jargon
     (let [path-list  (conj sources dest)
-          dest-paths (into [] (map (fn [s] (path-join dest (basename s))) sources))
-          types?      (reduce 
-                       (fn [f s] (and f s))
-                       (map (fn [d] (type-func? d)) path-list))]
+          dest-paths (into [] (map #(path-join dest (basename %)) sources))
+          types?     (every? true? (map #(type-func? %) sources))]
       (cond
         ;Make sure that all source paths in the request actually exist.
         (not (paths-exist? sources))
@@ -180,9 +180,9 @@
          :status "failure" 
          :error_code ERR_DOES_NOT_EXIST 
          :reason "does not exist" 
-         :paths (for [path sources :when (not (exists? path))] path)}
+         :paths (into [] (for [path sources :when (not (exists? path))] path))}
         
-        ;Make sure that the destination path actually exists.
+        ;Make sure that the destination directory actually exists.
         (not (exists? dest))
         {:action action 
          :status "failure" 
@@ -190,40 +190,48 @@
          :reason "does not exist" 
          :paths [dest]}
         
+        ;dest must be a directory.
+        (not (is-dir? dest))
+        {:action action
+         :status "failure"
+         :error_code ERR_DOES_NOT_EXIST
+         :reason "is not a directory."
+         :path dest}
+        
         ;Make sure all the paths in the request are writeable.
-        (not (paths-writeable? user path-list))
+        (not (paths-writeable? user sources))
         {:action action 
          :status "failure" 
          :error_code ERR_NOT_WRITEABLE 
          :reason "is not writeable" 
-         :paths (for [path path-list :when (not (is-writeable? user path))] path)}
+         :paths (into [] (for [path sources :when (not (is-writeable? user path))] path))}
         
-        ;Make sure that the destination directories don't exist already.
+        ;Make sure the destination directory is writeable.
+        (not (is-writeable? user dest))
+        {:action action
+         :status "failure"
+         :error_code ERR_NOT_WRITEABLE
+         :reason "is not writeable"
+         :path (dirname dest)}
+        
+        ;Make sure that the destination paths don't exist already.
         (not (every? false? (map exists? dest-paths)))
         {:action action 
          :status "failure" 
          :reason "exists"
          :error_code ERR_EXISTS
-         :paths (filter (fn [p] (exists? p)) dest-paths)}
+         :paths (into [] (filter (fn [p] (exists? p)) dest-paths))}
         
-        ;Make sure that everything is a directory.
+        ;Make sure that everything in sources is the correct type.
         (not types?)
         {:action action
          :status "failure"
-         :paths (for [path path-list :when (not (type-func? path))]
-                  {:reason "is not a directory" 
-                   :path path 
-                   :error_code type-error})}
+         :paths path-list}
         
         :else
-        (let [results (move-all sources dest)]
-          (if (== 0 (count results))
-            {:action action :status "success" :sources sources :dest dest}
-            {:action action 
-             :status "failure"
-             :error_code ERR_INCOMPLETE_MOVE
-             :paths results}))))))
-
+        (do (move-all sources dest)
+          {:action action :status "success" :sources sources :dest dest})))))
+        
 (defn move-directories
   [user sources dest]
   (mv user sources dest is-dir? "move-dirs" ERR_NOT_A_FOLDER))
