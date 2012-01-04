@@ -50,54 +50,6 @@ The iRODS configuration should look fairly similar to other systems that interac
 The log4j configuration section is just a bog-standard log4j configuration. It configures two loggers by default, one that goes to stdout and another that goes to a log file. You might want to disable the ConsoleAppender, but leaving it in shouldn't hurt anything.
 
 
-File Upload Via URL
--------------------
-
-Curl command:
-
-    curl -H "Content-Type:application/json" -d '{"dest" : "/tempZone/home/rods/footest2002.txt", "address" : "http://www.google.com/"}' http://127.0.0.1:3000/file/urlupload?user=rods
-
-Response:
-
-    {
-        "path":"\/tempZone\/home\/rods\/footest2002.txt",
-        "status":"success",
-        "action":"url-upload"
-    }
-
-
-File Upload
------------
-
-File uploads are the odd command out. All parameters are passed as form fields. See the curl command below for more details.
-
-Curl command:
-
-    curl -F file=@LICENSE.txt -F dest=/tempZone/home/rods/arg.txt -F user=rods http://127.0.0.1:3000/file/upload
-
-Response:
-
-    {
-        "path":"\/tempZone\/home\/rods\/arg.txt",
-        "status":"success",
-        "action":"file-upload"
-    }
-
-
-File Download
--------------
-
-Curl command:
-
-    curl http://127.0.0.1:3000/file/download?user=rods&path=/tempZone/home/rods/arg.txt
-
-The file should get downloaded. The "Content-Disposition" header will be included in all download responses. By default, it will include the "attachment;" value, which can be disabled by placing the "attachment=0" query parameter into the URL. An example would look like the following:
-
-    curl 'http://127.0.0.1:3000/file/download?user=rods&path=/tempZone/home/rods/arg.txt&attachment=0'
-
-Setting "attachment" to 1 will re-add the attachment value to the Content-Disposition header field. 
-
-
 Directory Creation
 ------------------
 
