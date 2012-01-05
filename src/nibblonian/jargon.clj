@@ -1,14 +1,20 @@
 (ns nibblonian.jargon
-  (:use [clojure-commons.file-utils])
   (:require [clojure.tools.logging :as log]
             [ring.util.codec :as codec]
-            [clojure.data.codec.base64 :as base64])
+            [clojure.data.codec.base64 :as base64]
+            [clojure-commons.file-utils :as ft])
   (:import [org.irods.jargon.core.exception DataNotFoundException]
            [org.irods.jargon.core.protovalues FilePermissionEnum]
            [org.irods.jargon.core.pub.domain AvuData]
            [org.irods.jargon.core.connection IRODSAccount]
            [org.irods.jargon.core.pub IRODSFileSystem]
            [org.irods.jargon.core.pub.io IRODSFileReader]
+           [org.irods.jargon.datautils.datacache 
+            DataCacheServiceFactoryImpl]
+           [org.irods.jargon.datautils.shoppingcart 
+            FileShoppingCart
+            ShoppingCartEntry 
+            ShoppingCartServiceImpl]
            [java.io FileInputStream]))
 
 (def read-perm FilePermissionEnum/READ)
@@ -206,7 +212,7 @@
   [path]
   "Returns true if the path is a directory in iRODS, false otherwise."
   (let [ff (:fileFactory cm)
-        fixed-path (rm-last-slash path)]
+        fixed-path (ft/rm-last-slash path)]
     (.. (. ff (instanceIRODSFile fixed-path)) isDirectory)))
 
 (defn data-object
@@ -218,7 +224,7 @@
   [path]
   "Returns an instance of Collection (the Jargon version) representing
     a directory in iRODS."
-  (. (:collectionAO cm) findByAbsolutePath (rm-last-slash path)))
+  (. (:collectionAO cm) findByAbsolutePath (ft/rm-last-slash path)))
 
 (defn lastmod-date
   [path]
@@ -312,7 +318,7 @@
 
     Returns:
       String containing the name of the last directory in the path."
-  (. (. (:collectionAO cm) findByAbsolutePath (rm-last-slash path)) getCollectionLastPathComponent))
+  (. (. (:collectionAO cm) findByAbsolutePath (ft/rm-last-slash path)) getCollectionLastPathComponent))
 
 (defn sub-collections
   [path]
@@ -325,7 +331,7 @@
     Returns:
       Sequence containing Collections (the Jargon kind) representing
       directories that reside under the directory represented by 'path'."
-  (. (:lister cm) listCollectionsUnderPath (rm-last-slash path) 0))
+  (. (:lister cm) listCollectionsUnderPath (ft/rm-last-slash path) 0))
 
 (defn sub-collection-paths
   [path]
@@ -346,7 +352,7 @@
   (let [abs-path (. list-obj getFormattedAbsolutePath)
         lister   (:lister cm)]
     {:id            abs-path
-     :label         (basename abs-path)
+     :label         (ft/basename abs-path)
      :permissions   (collection-perm-map user abs-path)
      :hasSubDirs    (> (count (. lister listCollectionsUnderPath abs-path 0)) 0)
      :date-created  (str (long (. (. list-obj getCreatedAt) getTime)))
@@ -356,7 +362,7 @@
   [user list-obj]
   (let [abs-path (. list-obj getFormattedAbsolutePath)]
     {:id            abs-path
-     :label         (basename abs-path)
+     :label         (ft/basename abs-path)
      :permissions   (dataobject-perm-map user abs-path)
      :date-created  (str (long (. (. list-obj getCreatedAt) getTime)))
      :date-modified (str (long (. (. list-obj getModifiedAt) getTime)))
@@ -421,15 +427,6 @@
       (let [old-avu (map2avu (first (get-attribute dir-path attr)))]
         (. ao-obj modifyAVUMetadata dir-path old-avu avu)))))
 
-(defn transform-map-for-deletion
-  [path avu-map]
-  (let [str64   (comp #(java.lang.String. %) base64/encode #(.getBytes %))
-        new-map {:attr  (:attr avu-map)
-                 :value (str64 (:value avu-map))
-                 :unit  (:unit avu-map)}]
-    (set-metadata path (:attr new-map) (:value new-map) (:unit avu-map))
-    new-map))
-
 (defn delete-metadata
   [dir-path attr]
   "Deletes an avu from dir-path."
@@ -473,7 +470,7 @@
 
 (defn move-all
   [sources dest]
-  (into [] (map #(move %1 (path-join dest (basename %1))) sources)))
+  (into [] (map #(move %1 (ft/path-join dest (ft/basename %1))) sources)))
 
 (defn output-stream
   "Returns an FileOutputStream for a file in iRODS pointed to by 'output-path'."
@@ -492,6 +489,29 @@
   (let [fileFactory (:fileFactory cm)
         read-file   (file fpath)]
     (. (IRODSFileReader. read-file fileFactory) read buffer)))
+
+(defn shopping-cart
+  [filepaths]
+  (let [cart (FileShoppingCart/instance)]
+    (loop [fps filepaths]
+      (.addAnItem cart (ShoppingCartEntry/instance (first fps)))
+      (if (> (count (rest fps)) 0)
+        (recur (rest fps))))
+    cart))
+
+(defn store-cart
+  [user cart-key filepaths]
+  (let [aof               (:accessObjectFactory cm)
+        account           (:irodsAccount cm)
+        cart-svc          (ShoppingCartServiceImpl. aof account (DataCacheServiceFactoryImpl. aof))
+        cart              (shopping-cart filepaths)]
+    (log/warn (.toString cart))
+    (.serializeShoppingCartAsSpecifiedUser cart-svc cart cart-key user)))
+
+(defn temp-password
+  [user]
+  (let [uao (:userAO cm)]
+    (.getTemporaryPasswordForASpecifiedUser uao user)))
 
 (defmacro with-jargon
   [& body]

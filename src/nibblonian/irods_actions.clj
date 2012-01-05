@@ -4,9 +4,9 @@
             [nibblonian.ssl :as ssl]
             [ring.util.codec :as cdc]
             [clojure.data.json :as json]
+            [clojure-commons.file-utils :as ft]
             [clojure.string :as string])
   (:use [nibblonian.jargon]
-        [clojure-commons.file-utils]
         [nibblonian.error-codes]))
 
 (defn filter-unreadable
@@ -54,13 +54,13 @@
           :user user}
          
          :else
-         (let [data   (list-all (rm-last-slash path))
+         (let [data   (list-all (ft/rm-last-slash path))
                groups (group-by (fn [datum] (. datum isCollection)) data)
                files  (get groups false)
                dirs   (get groups true)
                retval (if include-files
                         {:id path
-                         :label         (basename path)
+                         :label         (ft/basename path)
                          :hasSubDirs    (> (count dirs) 0)
                          :date-created  (created-date path)
                          :date-modified (lastmod-date path)
@@ -72,7 +72,7 @@
                          :date-modified (lastmod-date path)
                          :permissions   (collection-perm-map user path)
                          :hasSubDirs    (> (count dirs) 0)
-                         :label         (basename path)
+                         :label         (ft/basename path)
                          :folders       (filter-unreadable (map (fn [d] (sub-dir-maps user d)) dirs))})]
            retval)))))
 
@@ -88,7 +88,7 @@
   (log/debug (str "create " user " " path))
   (with-jargon
     (cond
-      (not (collection-writeable? user (dirname path)))
+      (not (collection-writeable? user (ft/dirname path)))
       {:action "create"
        :path path
        :status "failure"
@@ -171,7 +171,7 @@
   [user sources dest type-func? action type-error]
   (with-jargon
     (let [path-list  (conj sources dest)
-          dest-paths (into [] (map #(path-join dest (basename %)) sources))
+          dest-paths (into [] (map #(ft/path-join dest (ft/basename %)) sources))
           types?     (every? true? (map #(type-func? %) sources))]
       (cond
         ;Make sure that all source paths in the request actually exist.
@@ -212,7 +212,7 @@
          :status "failure"
          :error_code ERR_NOT_WRITEABLE
          :reason "is not writeable"
-         :path (dirname dest)}
+         :path (ft/dirname dest)}
         
         ;Make sure that the destination paths don't exist already.
         (not (every? false? (map exists? dest-paths)))
@@ -291,24 +291,6 @@
   [user source dest]
   (rname user source dest is-dir? "rename-directory" ERR_NOT_A_FOLDER))
 
-(defn download-file
-  "Returns a response map filled out with info that lets the client download
-   a file."
-  [user file-path]
-  (with-jargon
-    (cond
-      (not (exists? file-path))
-      {:status 404 
-       :body (str "File " file-path " does not exist.")}
-      
-      (is-readable? user file-path)
-      {:status 200 
-       :body (input-stream file-path)}
-      
-      :else
-      {:status 400 
-       :body (str "File " file-path " isn't writeable.")})))
-
 (defn preview
   "Grabs a preview of a file in iRODS.
 
@@ -362,7 +344,7 @@
     Returns:
       A string containing the absolute path of the user's home directory."
   (with-jargon
-    (let [user-home (path-join staging-dir user)]
+    (let [user-home (ft/path-join staging-dir user)]
       (if (not (exists? user-home))
         (mkdirs user-home))
       user-home)))
@@ -507,3 +489,45 @@
           
           :else
           (merge manifest {:rawcontents rawcontents-path}))))))
+
+(defn download
+  [user filepaths]
+  (with-jargon
+    (let [cart-key   (str (System/currentTimeMillis))
+          account    (:irodsAccount cm)
+          irods-host (.getHost account)
+          irods-port (.getPort account)
+          irods-zone (.getZone account)
+          irods-dsr  (.getDefaultStorageResource account)
+          passwd     (store-cart user cart-key filepaths)]
+      {:action "download"
+       :status "success"
+       :data
+       {:user user
+        :password passwd
+        :host irods-host
+        :port irods-port
+        :zone irods-zone
+        :defaultStorageResource irods-dsr
+        :key cart-key}})))
+
+(defn upload
+  [user]
+  (with-jargon
+    (let [cart-key   (str (System/currentTimeMillis))
+          account    (:irodsAccount cm)
+          irods-host (.getHost account)
+          irods-port (.getPort account)
+          irods-zone (.getZone account)
+          irods-dsr  (.getDefaultStorageResource account)
+          passwd     (temp-password user)]
+      {:action "upload"
+       :status "success"
+       :data
+       {:user user
+        :password passwd
+        :host irods-host
+        :port irods-port
+        :zone irods-zone
+        :defaultStorageResource irods-dsr
+        :key cart-key}})))

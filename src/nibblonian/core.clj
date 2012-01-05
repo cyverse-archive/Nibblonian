@@ -47,7 +47,13 @@
        (retry do-homedir request))
   
   (POST "/exists" request
-       (retry do-exists request))
+        (retry do-exists request))
+  
+  (POST "/download" request
+        (retry do-download request))
+  
+  (GET "/upload" request
+       (retry do-upload request))
   
   (GET "/directory" request
        (retry do-directory request))
