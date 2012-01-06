@@ -50,6 +50,55 @@ The iRODS configuration should look fairly similar to other systems that interac
 The log4j configuration section is just a bog-standard log4j configuration. It configures two loggers by default, one that goes to stdout and another that goes to a log file. You might want to disable the ConsoleAppender, but leaving it in shouldn't hurt anything.
 
 
+File Upload
+-----------
+Uploads are now handled by iDrop Lite. Nibblonian is only responsible for generating a temporary password for a user and returning connection information.
+
+Curl command:
+
+    curl http://nibblonian.example.org/upload?user=muahaha
+
+The response body:
+
+    {
+        "action":"upload",
+        "status":"success",
+        "data": {
+                    "user":"muahaha",
+                    "password":"c5dbff21fa123d5c726f27cff8279d70",
+                    "host":"blowhole.example.org",
+                    "port":1247,
+                    "zone":"tempZone",
+                    "defaultStorageResource":"",
+                    "key":"1325877857614"
+                }
+    }
+
+
+File Download
+-------------
+Downloads are now handled by iDrop Lite. Nibblonian handles serializing the shopping cart object and returning a temporary password.
+
+Curl command:
+
+    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/muahaha/test.txt"]}' 'http://nibblonian.example.org/download?user=muahaha'
+
+The response:
+
+    {
+        "action":"download",
+        "status":"success",
+        "data": {
+                    "user":"muahaha",
+                    "password":"cc181a5a97635c7b45a3b2b828f964fe",
+                    "host":"blowhole.example.org",
+                    "port":1247,
+                    "zone":"tempZone",
+                    "defaultStorageResource":"",
+                    "key":"1325878326128"
+                }
+    }
+
 Directory Creation
 ------------------
 
