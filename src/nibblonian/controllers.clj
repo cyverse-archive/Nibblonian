@@ -448,3 +448,46 @@
     :else
     (let [user (query-param request "user")]
       (create-response (irods-actions/upload user)))))
+
+(defn do-special-download
+  "Handles a file download
+
+   Request Parameters:
+     user - Query string field containing a username.
+     path - Query string field containing the path to download."
+  [request]
+  (log/debug "do-download")  
+  (cond
+    (not (query-param? request "user")) (bad-query "user" "download")
+    (not (query-param? request "path")) (bad-query "path" "download")
+    :else
+    (let [user (query-param request "user")
+          path (query-param request "path")]
+      (log/info (str "User for download: " user))
+      (log/info (str "Path to download: " path))
+      (cond
+        (super-user? user)
+        (create-response {:action "download"
+                          :status "failure"
+                          :reason "action not allowed by that user"
+                          :user user})
+        
+        ;;; If disable is not included, assume the attachment
+        ;;; part should be left out.
+        (not (query-param? request "attachment"))
+        (rsp-utils/header
+          (irods-actions/download-file user path)
+          "Content-Disposition"
+          (str "attachment; filename=\"" (utils/basename path) "\""))
+        
+        (not (attachment? request))
+        (rsp-utils/header
+          (irods-actions/download-file user path)
+          "Content-Disposition"
+          (str "filename=\"" (utils/basename path) "\""))
+        
+        :else
+        (rsp-utils/header
+          (irods-actions/download-file user path)
+          "Content-Disposition"
+          (str "attachment; filename=\"" (utils/basename path) "\""))))))

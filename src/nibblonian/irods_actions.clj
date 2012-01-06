@@ -475,7 +475,7 @@
                               :tree-urls (format-tree-urls (get-attribute path "tree-urls"))}
             file-size        (file-size path)
             preview-path     (str "file/preview?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path))
-            rawcontents-path (str "file/download?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path))
+            rawcontents-path (str "display-download?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path))
             rc-no-disp       (str rawcontents-path "&attachment=0")]
         (cond
           (extension? path ".png")
@@ -484,11 +484,26 @@
           (extension? path ".pdf")
           (merge manifest {:pdf rc-no-disp})
           
-          (>= file-size data-threshold)
-          (merge manifest {:preview preview-path})
-          
           :else
-          (merge manifest {:rawcontents rawcontents-path}))))))
+          (merge manifest {:preview preview-path}))))))
+
+(defn download-file
+  "Returns a response map filled out with info that lets the client download
+   a file."
+  [user file-path]
+  (with-jargon
+    (cond
+      (not (exists? file-path))
+      {:status 404 
+       :body (str "File " file-path " does not exist.")}
+      
+      (is-readable? user file-path)
+      {:status 200 
+       :body (input-stream file-path)}
+      
+      :else
+      {:status 400 
+       :body (str "File " file-path " isn't writeable.")})))
 
 (defn download
   [user filepaths]

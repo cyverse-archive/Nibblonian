@@ -52,6 +52,9 @@
   (POST "/download" request
         (retry do-download request))
   
+  (GET "/display-download" request
+       (retry do-special-download request))
+  
   (GET "/upload" request
        (retry do-upload request))
   
