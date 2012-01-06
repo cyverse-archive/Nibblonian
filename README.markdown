@@ -52,7 +52,7 @@ The log4j configuration section is just a bog-standard log4j configuration. It c
 
 File Upload
 -----------
-Uploads are now handled via iDrop Lite. Nibblonian is only responsible for generating a temporary password for a user and returning connection information.
+Uploads are now handled by iDrop Lite. Nibblonian is only responsible for generating a temporary password for a user and returning connection information.
 
 Curl command:
 
@@ -75,6 +75,29 @@ The response body:
     }
 
 
+File Download
+-------------
+Downloads are now handled by iDrop Lite. Nibblonian handles serializing the shopping cart object and returning a temporary password.
+
+Curl command:
+
+    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/muahaha/test.txt"]}' 'http://nibblonian.example.org/download?user=muahaha'
+
+The response:
+
+    {
+        "action":"download",
+        "status":"success",
+        "data": {
+                    "user":"muahaha",
+                    "password":"cc181a5a97635c7b45a3b2b828f964fe",
+                    "host":"blowhole.example.org",
+                    "port":1247,
+                    "zone":"tempZone",
+                    "defaultStorageResource":"",
+                    "key":"1325878326128"
+                }
+    }
 
 Directory Creation
 ------------------
