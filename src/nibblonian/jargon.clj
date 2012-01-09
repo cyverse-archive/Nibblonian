@@ -499,19 +499,18 @@
         (recur (rest fps))))
     cart))
 
-(defn store-cart
-  [user cart-key filepaths]
-  (let [aof               (:accessObjectFactory cm)
-        account           (:irodsAccount cm)
-        cart-svc          (ShoppingCartServiceImpl. aof account (DataCacheServiceFactoryImpl. aof))
-        cart              (shopping-cart filepaths)]
-    (log/warn (.toString cart))
-    (.serializeShoppingCartAsSpecifiedUser cart-svc cart cart-key user)))
-
 (defn temp-password
   [user]
   (let [uao (:userAO cm)]
     (.getTemporaryPasswordForASpecifiedUser uao user)))
+
+(defn store-cart
+  [user cart-key filepaths]
+  (let [aof      (:accessObjectFactory cm)
+        account  (:irodsAccount cm)
+        cart-svc (ShoppingCartServiceImpl. aof account (DataCacheServiceFactoryImpl. aof))
+        cart     (shopping-cart filepaths)]
+    (.serializeShoppingCartAsSpecifiedUser cart-svc cart cart-key user)))
 
 (defmacro with-jargon
   [& body]
