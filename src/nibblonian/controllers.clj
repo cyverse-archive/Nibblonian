@@ -9,6 +9,7 @@
             [clojure-commons.file-utils :as utils]
             [nibblonian.jargon :as jargon]
             [nibblonian.irods-actions :as irods-actions]
+            [clojure-commons.clavin-client :as cl]
             [clojure.tools.logging :as log]
             [clojure.data.json :as json]))
 
@@ -35,7 +36,15 @@
   (get @props "nibblonian.app.community-data"))
 
 (defn init []
-  (reset! props (prps/parse-properties "nibblonian.properties")) 
+  (let [tmp-props (prps/parse-properties "nibblonian.properties")
+        zkurl (get tmp-props "zookeeper")]
+    (cl/with-zk
+      zkurl
+      (when (not (cl/can-run?))
+        (log/warn "THIS APPLICATION CANNOT RUN ON THIS MACHINE. SO SAYETH ZOOKEEPER.")
+        (log/warn "THIS APPLICATION WILL NOT EXECUTE CORRECTLY."))
+      
+      (reset! props (cl/properties "nibblonian")))) 
   
   ; Sets up the connection to iRODS through jargon-core.
   (jargon/init
