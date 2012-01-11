@@ -514,11 +514,13 @@
           irods-port (.getPort account)
           irods-zone (.getZone account)
           irods-dsr  (.getDefaultStorageResource account)
+          user-home  (ft/path-join "/" @zone "home" user)
           passwd     (store-cart user cart-key filepaths)]
       {:action "download"
        :status "success"
        :data
        {:user user
+        :home user-home
         :password passwd
         :host irods-host
         :port irods-port
@@ -534,12 +536,14 @@
           irods-host (.getHost account)
           irods-port (.getPort account)
           irods-zone (.getZone account)
+          user-home  (ft/path-join "/" @zone "home" user)
           irods-dsr  (.getDefaultStorageResource account)
           passwd     (temp-password user)]
       {:action "upload"
        :status "success"
        :data
        {:user user
+        :home user-home
         :password passwd
         :host irods-host
         :port irods-port
