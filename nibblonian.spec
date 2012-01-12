@@ -1,4 +1,6 @@
 %define __jar_repack %{nil}
+%define debug_package %{nil}
+%define __strip /bin/true
 Summary: nibblonian
 Name: nibblonian
 Version: 0.1.0
