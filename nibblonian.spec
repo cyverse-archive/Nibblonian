@@ -28,32 +28,32 @@ lein deps
 lein uberjar
 
 %install
-install -d -o iplant -g iplant $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
-install -d -o iplant -g iplant $RPM_BUILD_ROOT/var/run/nibblonian/
-install -d -o iplant -g iplant $RPM_BUILD_ROOT/var/lock/subsys/nibblonian/
-install -d -o iplant -g iplant $RPM_BUILD_ROOT/var/log/nibblonian/
-install -d -o iplant -g iplant $RPM_BUILD_ROOT/etc/nibblonian/
+install -d $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
+install -d $RPM_BUILD_ROOT/var/run/nibblonian/
+install -d $RPM_BUILD_ROOT/var/lock/subsys/nibblonian/
+install -d $RPM_BUILD_ROOT/var/log/nibblonian/
+install -d $RPM_BUILD_ROOT/etc/nibblonian/
 
 install nibblonian $RPM_BUILD_ROOT/etc/init.d/
-install -m644 -o iplant -g iplant nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
-install -m644 -o iplant -g iplant conf/log4j.properties $RPM_BUILD_ROOT/etc/nibblonian/
-install -m644 -o iplant -g iplant conf/nibblonian.properties $RPM_BUILD_ROOT/etc/nibblonian/
+install nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
+install conf/log4j.properties $RPM_BUILD_ROOT/etc/nibblonian/
+install conf/nibblonian.properties $RPM_BUILD_ROOT/etc/nibblonian/
 
 %clean
 lein clean
 rm -r lib/*
 
 %files
-/usr/local/lib/nibblonian/
-/var/run/nibblonian/
-/var/lock/subsys/nibblonian/
-/var/log/nibblonian/
-/etc/nibblonian/
+%attr(-,iplant,iplant) /usr/local/lib/nibblonian/
+%attr(-,iplant,iplant) /var/run/nibblonian/
+%attr(-,iplant,iplant) /var/lock/subsys/nibblonian/
+%attr(-,iplant,iplant) /var/log/nibblonian/
+%attr(-,iplant,iplant) /etc/nibblonian/
 
-%config /etc/nibblonian/log4j.properties
-%config /etc/nibblonian/nibblonian.properties
+%config %attr(0644,iplant,iplant) /etc/nibblonian/log4j.properties
+%config %attr(0644,iplant,iplant) /etc/nibblonian/nibblonian.properties
 
 %attr(0755,root,root) /etc/init.d/nibblonian
-/usr/local/lib/nibblonian/nibblonian-0.0.5-SNAPSHOT-standalone.jar
+%attr(0644,iplant,iplant) /usr/local/lib/nibblonian/nibblonian-0.0.5-SNAPSHOT-standalone.jar
 
 
