@@ -20,6 +20,7 @@ exit 0
 
 %prep
 %setup -q
+mkdir -p $RPM_BUILD_ROOT/etc/init.d/
 
 %build
 unset JAVA_OPTS
