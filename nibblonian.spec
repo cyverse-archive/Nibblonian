@@ -1,3 +1,4 @@
+%define __jar_repack %{nil}
 Summary: nibblonian
 Name: nibblonian
 Version: 0.1.0
