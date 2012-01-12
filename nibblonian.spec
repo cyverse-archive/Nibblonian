@@ -34,7 +34,7 @@ install -d -o iplant -g iplant $RPM_BUILD_ROOT/var/lock/subsys/nibblonian/
 install -d -o iplant -g iplant $RPM_BUILD_ROOT/var/log/nibblonian/
 install -d -o iplant -g iplant $RPM_BUILD_ROOT/etc/nibblonian/
 
-install -m755 -o iplant -g iplant nibblonian $RPM_BUILD_ROOT/etc/init.d/
+install nibblonian $RPM_BUILD_ROOT/etc/init.d/
 install -m644 -o iplant -g iplant nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
 install -m644 -o iplant -g iplant conf/log4j.properties $RPM_BUILD_ROOT/etc/nibblonian/
 install -m644 -o iplant -g iplant conf/nibblonian.properties $RPM_BUILD_ROOT/etc/nibblonian/
@@ -53,7 +53,7 @@ rm -r lib/*
 %config /etc/nibblonian/log4j.properties
 %config /etc/nibblonian/nibblonian.properties
 
-/etc/init.d/nibblonian
+%attr(0755,root,root) /etc/init.d/nibblonian
 /usr/local/lib/nibblonian/nibblonian-0.0.5-SNAPSHOT-standalone.jar
 
 
