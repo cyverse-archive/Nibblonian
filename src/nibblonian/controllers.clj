@@ -35,6 +35,9 @@
 (defn community-data []
   (get @props "nibblonian.app.community-data"))
 
+(defn listen-port []
+  (Integer/parseInt (get @props "nibblonian.app.listen-port")))
+
 (defn init []
   (let [tmp-props (prps/parse-properties "nibblonian.properties")
         zkurl (get tmp-props "zookeeper")]

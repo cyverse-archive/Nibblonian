@@ -144,4 +144,4 @@
     
     (init)
   
-    (jetty/run-jetty (site-handler nibblonian-routes) {:port (:port opts)})))
+    (jetty/run-jetty (site-handler nibblonian-routes) {:port (listen-port)})))
