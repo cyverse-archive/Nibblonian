@@ -1,4 +1,5 @@
 (ns nibblonian.core
+  (:gen-class)
   (:use compojure.core)
   (:use [ring.middleware
          params
@@ -10,15 +11,15 @@
         [nibblonian.request-utils]
         [nibblonian.controllers]
         [nibblonian.error-codes])
-  (:require [compojure.route :as route]
+  (:require [clojure.tools.cli :as cli] 
+            [compojure.route :as route]
             [compojure.handler :as handler]
             [nibblonian.query-params :as qp]
             [nibblonian.json-body :as jb]
             [clojure.tools.logging :as log]
+            [ring.adapter.jetty :as jetty]
             [nibblonian.irods-actions :as irods-actions])
   (:import [org.irods.jargon.core.exception JargonRuntimeException JargonException]))
-
-(init)
 
 (defn- do-apply
   [func & args]
@@ -125,5 +126,22 @@
     wrap-nested-params
     qp/wrap-query-params))
 
-(def app
-  (site-handler nibblonian-routes))
+(defn parse-args
+  [args]
+  (cli/cli
+    args
+    ["-h" "--help" "Show help." :default false :flag true]
+    ["-p" "--port" "Set the port to listen on." :default 31370 :parse-fn #(Integer. %)]))
+
+(defn -main
+  [& args]
+  
+  (let [[opts args help-str] (parse-args args)]
+    (cond
+      (:help opts)
+      (do (println help-str)
+        (System/exit 0)))
+    
+    (init)
+  
+    (jetty/run-jetty (site-handler nibblonian-routes) {:port (:port opts)})))
