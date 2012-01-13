@@ -44,6 +44,20 @@ install nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/n
 install conf/log4j.properties $RPM_BUILD_ROOT/etc/nibblonian/
 install conf/nibblonian.properties $RPM_BUILD_ROOT/etc/nibblonian/
 
+%post
+/sbin/chkconfig --add nibblonian
+
+%preun
+if [ $1 -eq 0 ] ; then
+	/sbin/service nibblonian stop >/dev/null 2>&1
+	/sbin/chkconfig --del nibblonian
+fi
+
+%postun
+if [ "$1" -ge "1" ] ; then
+	/sbin/service nibblonian condrestart >/dev/null 2>&1 || :
+fi
+
 %clean
 lein clean
 rm -r lib/*

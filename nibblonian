@@ -56,9 +56,20 @@ restart () {
     start
 }
 
+reload () {
+    restart 
+}
+
+force_reload () {
+    restart 
+}
+
 showstatus () {
     status -p ${pidfile} ${program}
-    RETVAL=$?
+}
+
+showstatus_q () {
+    showstatus >/dev/null 2>&1
 }
 
 case "$1" in
@@ -73,13 +84,26 @@ case "$1" in
     restart)
         restart
     ;;
+
+    reload)
+        reload
+    ;;
+
+    force-reload)
+        force_reload
+    ;;
     
     status)
         showstatus
     ;;
+
+    condrestart|try-restart)
+        showstatus_q || exit 0
+        restart
+    ;;
     
     *)
-        echo "Usage: $program {start|stop|restart,status}"
+        echo "Usage: $program {start|stop|restart|reload|force-reload|status|condrestart|try-restart}"
         exit 1
     ;;
 esac
