@@ -2,8 +2,7 @@
   (:use [nibblonian.error-codes])
   (:require [clojure.data.json :as json]
             [clojure.tools.logging :as log]
-            [ring.util.response :as rsp-utils]
-            ))
+            [ring.util.response :as rsp-utils]))
 
 (defn json?
   "Checks to make sure that a string contains JSON."
