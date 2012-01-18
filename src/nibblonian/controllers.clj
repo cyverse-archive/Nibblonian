@@ -7,7 +7,7 @@
             [ring.util.response :as rsp-utils]
             [ring.util.codec :as cdc]
             [clojure-commons.file-utils :as utils]
-            [nibblonian.jargon :as jargon]
+            [clj-jargon.jargon :as jargon]
             [nibblonian.irods-actions :as irods-actions]
             [clojure-commons.clavin-client :as cl]
             [clojure.tools.logging :as log]

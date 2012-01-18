@@ -8,6 +8,7 @@
                  [org.clojure/data.codec "0.1.0"]
                  [postgresql/postgresql "9.0-801.jdbc4"]
                  [org.iplantc/clojure-commons "1.1.0-SNAPSHOT"]
+                 [org.iplantc/clj-jargon "0.1.0-SNAPSHOT"]
                  [compojure "1.0.1"]
                  [org.clojure/tools.cli "0.2.1"]
                  [ring/ring-jetty-adapter "1.0.1"]
