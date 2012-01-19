@@ -487,9 +487,7 @@
           :else
           (merge manifest {:preview preview-path}))))))
 
-(defn download-file
-  "Returns a response map filled out with info that lets the client download
-   a file."
+(defn- get-download-stream
   [user file-path]
   (with-jargon
     (cond
@@ -497,13 +495,21 @@
       {:status 404 
        :body (str "File " file-path " does not exist.")}
       
-      (is-readable? user file-path)
-      {:status 200 
-       :body (input-stream file-path)}
+      (not (is-readable? user file-path))
+      {:status 400 
+       :body (str "File " file-path " isn't writeable.")}
       
       :else
-      {:status 400 
-       :body (str "File " file-path " isn't writeable.")})))
+      (input-stream file-path))))
+
+(defn download-file
+  "Returns a response map filled out with info that lets the client download
+   a file."
+  [user file-path]
+  (let [istream (get-download-stream user file-path)]
+    (if (map? istream)
+      istream
+      {:status 200 :body istream})))
 
 (defn download
   [user filepaths]
