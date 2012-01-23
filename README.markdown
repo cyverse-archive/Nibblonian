@@ -388,8 +388,32 @@ Curl command:
 
 Response:
 
-    {"action":"set-metadata","status":"success","path":"\/iplant\/home\/johnw\/LICENSE.txt","user":"johnw"}
+    {
+        "action" : "set-metadata",
+        "status" : "success",
+        "path"   : "\/iplant\/home\/johnw\/LICENSE.txt",
+        "user"   : "johnw"
+    }
+    
 
+Setting File and Directory Metadata Batch
+-----------------------------------------
+
+Largely the same as the single set, but you'll pass in a list of AVUs instead of a single one. Also, note that you'll hit the /(file|directory)/metadata-batch endpoint.
+
+Curl command:
+
+    curl -H "Content-Type:application/json" -d '{"avus" : [{"attr" : "avu_name", "value" : "avu_value", "unit" : "avu_unit"},{"attr" : "avu_name1", "value" : "avu_value1", "unit" : "avu_unit1"}]}'
+    
+Response:
+
+    {
+        "action" : "set-metadata-batch",
+        "status" : "success",
+        "path"   : "\/iplant\/home\/wregglej\/TestData\/condormonitor.tmproj",
+        "user"   :" wregglej"
+    }
+    
 
 Getting File and Directory Metadata
 ------------------------------------
