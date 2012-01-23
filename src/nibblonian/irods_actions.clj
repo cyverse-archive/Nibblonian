@@ -366,7 +366,7 @@
       :else
       {:action "get-metadata"
        :status "success"
-       :metadata (get-metadata path)})))
+       :metadata (get-metadata (ft/rm-last-slash path))})))
 
 (defn get-tree
   [user path]
@@ -398,8 +398,24 @@
       
       :else
       (do
-        (set-metadata path (:attr avu-map) (:value avu-map) (:unit avu-map))
-        {:action "set-metadata" :status "success" :path path :user user}))))
+        (set-metadata (ft/rm-last-slash path) (:attr avu-map) (:value avu-map) (:unit avu-map))
+        {:action "set-metadata" :status "success" :path (ft/rm-last-slash path) :user user}))))
+
+(defn metadata-batch-set
+  [user path avu-maps]
+  (with-jargon
+    (cond
+      (not (exists? path))
+      (fail-resp "set-metadata-batch" "failure" "Path doesn't exist." ERR_DOES_NOT_EXIST)
+      
+      (not (is-writeable? user path))
+      (fail-resp "set-metadata-batch" "failure" "Path isn't writeable by user." ERR_NOT_WRITEABLE)
+      
+      :else
+      (do
+        (doseq [avu avu-maps]
+          (set-metadata (ft/rm-last-slash path) (:attr avu) (:value avu) (:unit avu)))
+        {:action "set-metadata-batch" :status "success" :path (ft/rm-last-slash path) :user user}))))
 
 (defn set-tree
   [user path tree-urls]

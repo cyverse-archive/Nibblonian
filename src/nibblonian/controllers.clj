@@ -343,6 +343,44 @@
       (log/info (str "Body: " (json/json-str body)))
       (create-response (irods-actions/metadata-set user path body)))))
 
+(defn do-metadata-batch-set
+  [request]
+  (log/debug "do-metadata-set")
+  (cond
+    (not (query-param? request "user"))
+    (bad-query "user" "set-metadata-batch")
+    
+    (not (query-param? request "path"))
+    (bad-query "path" "set-metadata-batch")
+    
+    (not (valid-body? request {:avus sequential?}))
+    (create-response (bad-body request {:avus sequential?}))
+    
+    :else
+    (let [user (query-param request "user")
+          path (query-param request "path")
+          body (:body request)]
+      (doseq [avu (:avus body)]
+        (cond
+          (not (:attr avu))
+          (create-response {:status "failure"
+                            :error_code ERR_BAD_OR_MISSING_FIELD
+                            :field "attr"
+                            :avu avu})
+          
+          (not (:value avu))
+          (create-response {:status "failure"
+                            :error_code ERR_BAD_OR_MISSING_FIELD
+                            :field "value"
+                            :avu avu})
+          
+          (not (:unit avu))
+          (create-response {:status "failure"
+                            :error_code ERR_BAD_OR_MISSING_FIELD
+                            :field "unit"
+                            :avu avu})))
+      (create-response (irods-actions/metadata-batch-set user path (:avus body))))))
+
 (defn do-tree-set
   [request]
   (log/debug "do-tree-set")

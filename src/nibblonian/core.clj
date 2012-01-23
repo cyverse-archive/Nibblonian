@@ -104,11 +104,17 @@
   (POST "/file/metadata" request
         (retry do-metadata-set request))
   
+  (POST "/file/metadata-batch" request
+        (retry do-metadata-batch-set request))
+  
   (POST "/file/tree-urls" request
         (retry do-tree-set request))
   
   (POST "/directory/metadata" request
         (retry do-metadata-set request))
+  
+  (POST "/directory/metadata-batch" request
+        (retry do-metadata-batch-set request))
   
   (DELETE "/file/metadata" request
           (retry do-metadata-delete request))
