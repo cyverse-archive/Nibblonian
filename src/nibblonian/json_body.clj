@@ -1,5 +1,5 @@
 (ns nibblonian.json-body
-  (:require [clojure.contrib.json :as json]))
+  (:require [clojure.data.json :as json]))
 
 (defn- json-body?
   [request]

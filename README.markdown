@@ -50,53 +50,54 @@ The iRODS configuration should look fairly similar to other systems that interac
 The log4j configuration section is just a bog-standard log4j configuration. It configures two loggers by default, one that goes to stdout and another that goes to a log file. You might want to disable the ConsoleAppender, but leaving it in shouldn't hurt anything.
 
 
-File Upload Via URL
--------------------
-
-Curl command:
-
-    curl -H "Content-Type:application/json" -d '{"dest" : "/tempZone/home/rods/footest2002.txt", "address" : "http://www.google.com/"}' http://127.0.0.1:3000/file/urlupload?user=rods
-
-Response:
-
-    {
-        "path":"\/tempZone\/home\/rods\/footest2002.txt",
-        "status":"success",
-        "action":"url-upload"
-    }
-
-
 File Upload
 -----------
-
-File uploads are the odd command out. All parameters are passed as form fields. See the curl command below for more details.
+Uploads are now handled by iDrop Lite. Nibblonian is only responsible for generating a temporary password for a user and returning connection information.
 
 Curl command:
 
-    curl -F file=@LICENSE.txt -F dest=/tempZone/home/rods/arg.txt -F user=rods http://127.0.0.1:3000/file/upload
+    curl http://nibblonian.example.org/upload?user=muahaha
 
-Response:
+The response body:
 
     {
-        "path":"\/tempZone\/home\/rods\/arg.txt",
+        "action":"upload",
         "status":"success",
-        "action":"file-upload"
+        "data": {
+                    "user":"muahaha",
+                    "password":"c5dbff21fa123d5c726f27cff8279d70",
+                    "host":"blowhole.example.org",
+                    "port":1247,
+                    "zone":"tempZone",
+                    "defaultStorageResource":"",
+                    "key":"1325877857614"
+                }
     }
 
 
 File Download
 -------------
+Downloads are now handled by iDrop Lite. Nibblonian handles serializing the shopping cart object and returning a temporary password.
 
 Curl command:
 
-    curl http://127.0.0.1:3000/file/download?user=rods&path=/tempZone/home/rods/arg.txt
+    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/muahaha/test.txt"]}' 'http://nibblonian.example.org/download?user=muahaha'
 
-The file should get downloaded. The "Content-Disposition" header will be included in all download responses. By default, it will include the "attachment;" value, which can be disabled by placing the "attachment=0" query parameter into the URL. An example would look like the following:
+The response:
 
-    curl 'http://127.0.0.1:3000/file/download?user=rods&path=/tempZone/home/rods/arg.txt&attachment=0'
-
-Setting "attachment" to 1 will re-add the attachment value to the Content-Disposition header field. 
-
+    {
+        "action":"download",
+        "status":"success",
+        "data": {
+                    "user":"muahaha",
+                    "password":"cc181a5a97635c7b45a3b2b828f964fe",
+                    "host":"blowhole.example.org",
+                    "port":1247,
+                    "zone":"tempZone",
+                    "defaultStorageResource":"",
+                    "key":"1325878326128"
+                }
+    }
 
 Directory Creation
 ------------------
@@ -387,8 +388,32 @@ Curl command:
 
 Response:
 
-    {"action":"set-metadata","status":"success","path":"\/iplant\/home\/johnw\/LICENSE.txt","user":"johnw"}
+    {
+        "action" : "set-metadata",
+        "status" : "success",
+        "path"   : "\/iplant\/home\/johnw\/LICENSE.txt",
+        "user"   : "johnw"
+    }
+    
 
+Setting File and Directory Metadata Batch
+-----------------------------------------
+
+Largely the same as the single set, but you'll pass in a list of AVUs instead of a single one. Also, note that you'll hit the /(file|directory)/metadata-batch endpoint.
+
+Curl command:
+
+    curl -H "Content-Type:application/json" -d '{"avus" : [{"attr" : "avu_name", "value" : "avu_value", "unit" : "avu_unit"},{"attr" : "avu_name1", "value" : "avu_value1", "unit" : "avu_unit1"}]}'
+    
+Response:
+
+    {
+        "action" : "set-metadata-batch",
+        "status" : "success",
+        "path"   : "\/iplant\/home\/wregglej\/TestData\/condormonitor.tmproj",
+        "user"   :" wregglej"
+    }
+    
 
 Getting File and Directory Metadata
 ------------------------------------
