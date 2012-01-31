@@ -9,6 +9,8 @@
   (:use [clj-jargon.jargon]
         [nibblonian.error-codes]))
 
+(def IPCRESERVED "ipc-reserved-unit")
+
 (defn filter-unreadable
   [metadata-list]
    (into [] (filter
@@ -364,9 +366,14 @@
       (fail-resp "get-metadata" "failure" "Path isn't readable by user" ERR_NOT_READABLE)
       
       :else
-      {:action "get-metadata"
-       :status "success"
-       :metadata (get-metadata (ft/rm-last-slash path))})))
+      (let [avu (map 
+                  #(if (= (:unit %1) IPCRESERVED) 
+                     (assoc %1 :unit "") 
+                     %1) 
+                  (get-metadata (ft/rm-last-slash path)))]
+        {:action "get-metadata"
+         :status "success"
+         :metadata avu}))))
 
 (defn get-tree
   [user path]
@@ -398,8 +405,12 @@
       
       :else
       (do
-        (set-metadata (ft/rm-last-slash path) (:attr avu-map) (:value avu-map) (:unit avu-map))
-        {:action "set-metadata" :status "success" :path (ft/rm-last-slash path) :user user}))))
+        (let [new-path (ft/rm-last-slash path)
+              new-attr (:attr avu-map)
+              new-val  (:value avu-map)
+              new-unit (if (string/blank? (:unit avu-map)) IPCRESERVED (:unit avu-map))]
+          (set-metadata new-path new-attr new-val new-unit)
+          {:action "set-metadata" :status "success" :path new-path :user user})))))
 
 (defn metadata-batch-set
   [user path avu-maps]
@@ -414,7 +425,11 @@
       :else
       (do
         (doseq [avu avu-maps]
-          (set-metadata (ft/rm-last-slash path) (:attr avu) (:value avu) (:unit avu)))
+          (let [new-path (ft/rm-last-slash path)
+                new-attr (:attr avu)
+                new-val  (:value avu)
+                new-unit (if (string/blank? (:unit avu)) IPCRESERVED (:unit avu))]
+            (set-metadata new-path new-attr new-val new-unit)))
         {:action "set-metadata-batch" :status "success" :path (ft/rm-last-slash path) :user user}))))
 
 (defn set-tree
