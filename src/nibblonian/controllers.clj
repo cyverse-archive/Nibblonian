@@ -343,6 +343,14 @@
       (log/info (str "Body: " (json/json-str body)))
       (create-response (irods-actions/metadata-set user path body)))))
 
+(defn- check-adds
+  [adds]
+  (into [] (map #(= (keys %) [:attr :value :unit]) adds)))
+
+(defn- check-dels
+  [dels]
+  (into [] (map #(string? %) dels)))
+
 (defn do-metadata-batch-set
   [request]
   (log/debug "do-metadata-set")
@@ -353,33 +361,34 @@
     (not (query-param? request "path"))
     (bad-query "path" "set-metadata-batch")
     
-    (not (valid-body? request {:avus sequential?}))
-    (create-response (bad-body request {:avus sequential?}))
+    (not (valid-body? request {:add sequential?}))
+    (create-response (bad-body request {:add sequential?}))
+    
+    (not (valid-body? request {:delete sequential?}))
+    (create-response (bad-body request {:delete sequential?}))
     
     :else
     (let [user (query-param request "user")
           path (query-param request "path")
-          body (:body request)]
-      (doseq [avu (:avus body)]
-        (cond
-          (not (:attr avu))
+          body (:body request)
+          adds (:add body)
+          dels (:delete body)]
+      
+      (cond 
+        (> (count adds) 0)
+        (if (not (every? true? (check-adds adds)))
           (create-response {:status "failure"
                             :error_code ERR_BAD_OR_MISSING_FIELD
-                            :field "attr"
-                            :avu avu})
-          
-          (not (:value avu))
+                            :field "add"}))
+        
+        (> (count dels) 0)
+        (if (not (every? true? (check-dels dels)))
           (create-response {:status "failure"
                             :error_code ERR_BAD_OR_MISSING_FIELD
-                            :field "value"
-                            :avu avu})
-          
-          (not (:unit avu))
-          (create-response {:status "failure"
-                            :error_code ERR_BAD_OR_MISSING_FIELD
-                            :field "unit"
-                            :avu avu})))
-      (create-response (irods-actions/metadata-batch-set user path (:avus body))))))
+                            :field "add"})))
+      (create-response (irods-actions/metadata-batch-set user path body)))))
+
+
 
 (defn do-tree-set
   [request]

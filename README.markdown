@@ -399,18 +399,39 @@ Response:
 Setting File and Directory Metadata Batch
 -----------------------------------------
 
-Largely the same as the single set, but you'll pass in a list of AVUs instead of a single one. Also, note that you'll hit the /(file|directory)/metadata-batch endpoint.
+The endpoints for this command are /directory/metadata-batch and /file/metadata-batch. It accepts a POST request containing JSON in the following format:
+
+    { 
+        "add": [ 
+            { 
+                "attr": "attr", 
+                "value": "value", 
+                "unit": "unit" 
+            }, 
+            { 
+                "attr": "attr1", 
+                "value": "value", 
+                "unit": "unit" 
+            } 
+        ], 
+        "delete": [ 
+            "del1", 
+            "del2" 
+        ] 
+    } 
+    
+Both "add" and "delete" lists must be present even if they are empty.
 
 Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"avus" : [{"attr" : "avu_name", "value" : "avu_value", "unit" : "avu_unit"},{"attr" : "avu_name1", "value" : "avu_value1", "unit" : "avu_unit1"}]}'
+    curl -H "Content-Type:application/json" -d '{"add" : [{"attr" : "attr", "value" : "value", "unit" : "unit"}], "delete" : ["del1", "del2"]}' 'http://127.0.0.1:3000/file/metadata-batch?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
     
 Response:
 
     {
         "action" : "set-metadata-batch",
         "status" : "success",
-        "path"   : "\/iplant\/home\/wregglej\/TestData\/condormonitor.tmproj",
+        "path"   : "\/iplant\/home\/wregglej\/LICENSE.txt",
         "user"   :" wregglej"
     }
     

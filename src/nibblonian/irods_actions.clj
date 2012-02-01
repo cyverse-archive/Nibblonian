@@ -413,7 +413,7 @@
           {:action "set-metadata" :status "success" :path new-path :user user})))))
 
 (defn metadata-batch-set
-  [user path avu-maps]
+  [user path adds-dels]
   (with-jargon
     (cond
       (not (exists? path))
@@ -423,10 +423,16 @@
       (fail-resp "set-metadata-batch" "failure" "Path isn't writeable by user." ERR_NOT_WRITEABLE)
       
       :else
-      (do
-        (doseq [avu avu-maps]
-          (let [new-path (ft/rm-last-slash path)
-                new-attr (:attr avu)
+      (let [adds     (:add adds-dels)
+            dels     (:delete adds-dels)
+            new-path (ft/rm-last-slash path)]
+        
+        (doseq [del dels]
+          (if (attribute? new-path del)
+            (delete-metadata new-path del)))
+        
+        (doseq [avu adds]
+          (let [new-attr (:attr avu)
                 new-val  (:value avu)
                 new-unit (if (string/blank? (:unit avu)) IPCRESERVED (:unit avu))]
             (set-metadata new-path new-attr new-val new-unit)))
