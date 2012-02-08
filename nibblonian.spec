@@ -6,13 +6,14 @@
 Summary: nibblonian
 Name: nibblonian
 Version: 0.1.0
-Release: 1
+Release: 2
 Epoch: 0
 BuildArchitectures: noarch
 Group: Applications
 BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
 License: BSD
 Provides: nibblonian
+Requires: iplant-service-config
 Source0: %{name}-%{version}.tar.gz
 
 %description
@@ -48,7 +49,7 @@ install conf/nibblonian.properties $RPM_BUILD_ROOT/etc/nibblonian/
 /sbin/chkconfig --add nibblonian
 
 %preun
-if [ $1 -eq 0 ] ; then
+if [ "$1" -eq "0" ] ; then
 	/sbin/service nibblonian stop >/dev/null 2>&1
 	/sbin/chkconfig --del nibblonian
 fi

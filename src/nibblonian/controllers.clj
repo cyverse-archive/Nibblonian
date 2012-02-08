@@ -39,7 +39,7 @@
   (Integer/parseInt (get @props "nibblonian.app.listen-port")))
 
 (defn init []
-  (let [tmp-props (prps/parse-properties "nibblonian.properties")
+  (let [tmp-props (prps/parse-properties "zkhosts.properties")
         zkurl (get tmp-props "zookeeper")]
     (cl/with-zk
       zkurl
