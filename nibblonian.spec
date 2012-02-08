@@ -43,7 +43,6 @@ install -d $RPM_BUILD_ROOT/etc/nibblonian/
 install nibblonian $RPM_BUILD_ROOT/etc/init.d/
 install nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
 install conf/log4j.properties $RPM_BUILD_ROOT/etc/nibblonian/
-install conf/nibblonian.properties $RPM_BUILD_ROOT/etc/nibblonian/
 
 %post
 /sbin/chkconfig --add nibblonian
@@ -62,6 +61,7 @@ fi
 %clean
 lein clean
 rm -r lib/*
+rm -r $RPM_BUILD_ROOT
 
 %files
 %attr(-,iplant,iplant) /usr/local/lib/nibblonian/
