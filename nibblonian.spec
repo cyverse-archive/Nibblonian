@@ -71,7 +71,6 @@ rm -r $RPM_BUILD_ROOT
 %attr(-,iplant,iplant) /etc/nibblonian/
 
 %config %attr(0644,iplant,iplant) /etc/nibblonian/log4j.properties
-%config %attr(0644,iplant,iplant) /etc/nibblonian/nibblonian.properties
 
 %attr(0755,root,root) /etc/init.d/nibblonian
 %attr(0644,iplant,iplant) /usr/local/lib/nibblonian/nibblonian-0.0.5-SNAPSHOT-standalone.jar
