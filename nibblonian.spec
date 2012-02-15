@@ -6,13 +6,14 @@
 Summary: nibblonian
 Name: nibblonian
 Version: 0.1.0
-Release: 1
+Release: 2
 Epoch: 0
 BuildArchitectures: noarch
 Group: Applications
 BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
 License: BSD
 Provides: nibblonian
+Requires: iplant-service-config
 Source0: %{name}-%{version}.tar.gz
 
 %description
@@ -42,13 +43,12 @@ install -d $RPM_BUILD_ROOT/etc/nibblonian/
 install nibblonian $RPM_BUILD_ROOT/etc/init.d/
 install nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
 install conf/log4j.properties $RPM_BUILD_ROOT/etc/nibblonian/
-install conf/nibblonian.properties $RPM_BUILD_ROOT/etc/nibblonian/
 
 %post
 /sbin/chkconfig --add nibblonian
 
 %preun
-if [ $1 -eq 0 ] ; then
+if [ "$1" -eq "0" ] ; then
 	/sbin/service nibblonian stop >/dev/null 2>&1
 	/sbin/chkconfig --del nibblonian
 fi
@@ -61,6 +61,7 @@ fi
 %clean
 lein clean
 rm -r lib/*
+rm -r $RPM_BUILD_ROOT
 
 %files
 %attr(-,iplant,iplant) /usr/local/lib/nibblonian/
@@ -70,7 +71,6 @@ rm -r lib/*
 %attr(-,iplant,iplant) /etc/nibblonian/
 
 %config %attr(0644,iplant,iplant) /etc/nibblonian/log4j.properties
-%config %attr(0644,iplant,iplant) /etc/nibblonian/nibblonian.properties
 
 %attr(0755,root,root) /etc/init.d/nibblonian
 %attr(0644,iplant,iplant) /usr/local/lib/nibblonian/nibblonian-0.0.5-SNAPSHOT-standalone.jar

@@ -12,6 +12,7 @@
                  [compojure "1.0.1"]
                  [org.clojure/tools.cli "0.2.1"]
                  [ring/ring-jetty-adapter "1.0.1"]
+                 [ring/ring-devel "1.0.1"]
                  [org.irods.jargon/jargon-core "3.0.1-SNAPSHOT"]
                  [org.irods.jargon/jargon-test "3.0.1-SNAPSHOT"]
                  [org.irods.jargon/jargon-data-utils "3.0.1-SNAPSHOT"]

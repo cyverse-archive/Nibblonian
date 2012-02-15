@@ -7,7 +7,8 @@
          nested-params
          multipart-params
          cookies
-         session]
+         session
+         stacktrace]
         [nibblonian.request-utils]
         [nibblonian.controllers]
         [nibblonian.error-codes])
@@ -130,7 +131,8 @@
     wrap-multipart-params
     wrap-keyword-params
     wrap-nested-params
-    qp/wrap-query-params))
+    qp/wrap-query-params
+    wrap-stacktrace))
 
 (defn parse-args
   [args]

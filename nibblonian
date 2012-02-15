@@ -13,7 +13,7 @@ RUNUSER=iplant
 program=nibblonian
 jarfile=nibblonian-0.0.5-SNAPSHOT-standalone.jar
 jar=/usr/local/lib/${program}/${jarfile}
-conf=/etc/${program}
+conf=/etc/iplant-services/:/etc/${program}/
 mainclass=${program}.core
 
 ################################################################################
