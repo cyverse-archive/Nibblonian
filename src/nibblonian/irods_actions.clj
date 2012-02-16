@@ -196,7 +196,7 @@
         (not (is-dir? dest))
         {:action action
          :status "failure"
-         :error_code ERR_DOES_NOT_EXIST
+         :error_code ERR_NOT_A_FOLDER
          :reason "is not a directory."
          :path dest}
         
@@ -265,8 +265,7 @@
       {:action action 
        :status "failure" 
        :paths source
-       :error_code ERR_NOT_A_FILE
-       :reason "is not a file."}
+       :error_code type-error}
       
       (exists? dest)
       {:action action 
@@ -551,7 +550,11 @@
 (defn download
   [user filepaths]
   (with-jargon
-    (let [cart-key   (str (System/currentTimeMillis))
+    (if (not (user-exists? user))
+      {:status "failure"
+       :action "download"
+       :error_code ERR_NOT_A_USER}
+      (let [cart-key   (str (System/currentTimeMillis))
           account    (:irodsAccount cm)
           irods-host (.getHost account)
           irods-port (.getPort account)
@@ -569,27 +572,31 @@
         :port irods-port
         :zone irods-zone
         :defaultStorageResource irods-dsr
-        :key cart-key}})))
+        :key cart-key}}))))
 
 (defn upload
   [user]
   (with-jargon
-    (let [cart-key   (str (System/currentTimeMillis))
-          account    (:irodsAccount cm)
-          irods-host (.getHost account)
-          irods-port (.getPort account)
-          irods-zone (.getZone account)
-          user-home  (ft/path-join "/" @zone "home" user)
-          irods-dsr  (.getDefaultStorageResource account)
-          passwd     (temp-password user)]
-      {:action "upload"
-       :status "success"
-       :data
-       {:user user
-        :home user-home
-        :password passwd
-        :host irods-host
-        :port irods-port
-        :zone irods-zone
-        :defaultStorageResource irods-dsr
-        :key cart-key}})))
+    (if (not (user-exists? user))
+      {:status "failure"
+       :action "upload"
+       :error_code ERR_NOT_A_USER}
+      (let [cart-key   (str (System/currentTimeMillis))
+            account    (:irodsAccount cm)
+            irods-host (.getHost account)
+            irods-port (.getPort account)
+            irods-zone (.getZone account)
+            user-home  (ft/path-join "/" @zone "home" user)
+            irods-dsr  (.getDefaultStorageResource account)
+            passwd     (temp-password user)]
+        {:action "upload"
+         :status "success"
+         :data
+         {:user user
+          :home user-home
+          :password passwd
+          :host irods-host
+          :port irods-port
+          :zone irods-zone
+          :defaultStorageResource irods-dsr
+          :key cart-key}}))))
