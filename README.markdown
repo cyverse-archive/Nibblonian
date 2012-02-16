@@ -10,28 +10,12 @@ All commands take a "user" query string parameter. This is the iRODS user that i
 Also worth noting is that I've pretty-printed the JSON from the response bodies, but they aren't actually returned like that when you make a call.
 
 
-Deploying nibblonian
---------------------
+Configuring Nibblonian
+----------------------
 
-Nibblonian is packaged as a war file, so it deploys like pretty much other war file in existence. Dump the war file in servlet container, make sure it explodes, configure it, restart the servlet container.
+Nibblonian pulls its configuration from Zookeeper. The properties must be loaded into Zookeeper with Clavin.
 
-
-Configuring the nibblonian war file
------------------------------------
-
-The path to the config file is WEB-INF/classes/nibblonian.properties inside the nibblonian war file. It contains options for configuring the connection to iRODS and log4j. The default config file looks like this:
-
-    # Jargon-related configuration
-
-    nibblonian.irods.host=127.0.0.1
-    nibblonian.irods.port=1247
-    nibblonian.irods.user=rods
-    nibblonian.irods.password=rods
-    nibblonian.irods.home=/tempZone/home/rods/
-    nibblonian.irods.zone=tempZone
-    nibblonian.irods.defaultResource=
-
-There is also a log4j config file located at WEB-INF/classes/log4j.properties inside the nibblonian war file. It's a normal log4j properties file that looks like this by default.
+There is also a log4j config file located at /etc/nibblonian/log4j.properties. It's a normal log4j properties file that looks like this by default.
 
     # Jargon-related configuration
     log4j.rootLogger=WARN, A, B
@@ -49,10 +33,30 @@ The iRODS configuration should look fairly similar to other systems that interac
 
 The log4j configuration section is just a bog-standard log4j configuration. It configures two loggers by default, one that goes to stdout and another that goes to a log file. You might want to disable the ConsoleAppender, but leaving it in shouldn't hurt anything.
 
+Error Codes
+-----------
+
+When it encounters an error, Nibblonian will generally return a JSON object in the form:
+
+    {
+        "action" : "general name of the service",
+        "status" : "failure",
+        "error_code" : "ERR_CODE"
+    }
+    
+Other entries may be included in the map, but you shouldn't depend on them being there for error checking.
+
+A list of the known error codes is maintained here: [error codes](https://github.com/iPlantCollaborativeOpenSource/Nibblonian/blob/master/src/nibblonian/error_codes.clj)
+
+In other cases Nibblonian should return a stacktrace. Work is planned to convert Nibblonian's error handling over to [slingshot](https://github.com/scgilardi/slingshot) (I didn't know about slingshot when I originally wrote Nibblonian).
 
 File Upload
 -----------
 Uploads are now handled by iDrop Lite. Nibblonian is only responsible for generating a temporary password for a user and returning connection information.
+
+Action: "upload"
+
+Error codes: ERR_NOT_A_USER
 
 Curl command:
 
@@ -79,6 +83,10 @@ File Download
 -------------
 Downloads are now handled by iDrop Lite. Nibblonian handles serializing the shopping cart object and returning a temporary password.
 
+Action: "download"
+
+Error codes: ERR_NOT_A_USER
+
 Curl command:
 
     curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/muahaha/test.txt"]}' 'http://nibblonian.example.org/download?user=muahaha'
@@ -101,6 +109,9 @@ The response:
 
 Directory Creation
 ------------------
+Action: "create"
+
+Error codes: ERR_NOT_WRITEABLE, ERR_EXISTS
 
 Curl command:
 
@@ -117,6 +128,9 @@ The response body:
 
 Directory List (Non-Recursive)
 ------------------------------
+Action: "list-dir"
+
+Error codes: ERR_NOT_A_USER, ERR_NOT_READABLE
 
 Curl command:
 
@@ -209,6 +223,11 @@ Response for the first curl command:
 
 Directory Move
 --------------
+Action: "move-dirs"
+
+Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS
+
+The ERR_DOES_NOT_EXIST error code pops up when the destination directory does not exist and when one of the "sources" directories does not exist. The ERR_EXISTS code pops up when one of the new destination directories already exists.
 
 Curl command:
 
@@ -228,6 +247,11 @@ Response:
 
 File Move
 ---------
+Action: "move-files"
+
+Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_A_FOLDER, ERR_NOT_WRITEABLE, ERR_EXISTS
+
+The ERR_DOES_NOT_EXIST error code pops up when the destination directory does not exist and when one of the "sources" files does not exist. The ERR_EXISTS code pops up when one of the new destination files already exists.
 
 Curl command:
 
@@ -247,6 +271,9 @@ Response:
 
 Directory Rename
 ----------------
+Action: "rename-directory"
+
+Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_INCOMPLETE_RENAME
 
 Curl command:
 
@@ -264,6 +291,9 @@ Response:
 
 File Rename
 -----------
+Action: "rename-file"
+
+Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_INCOMPLETE_RENAME
 
 Curl command:
 
@@ -281,6 +311,9 @@ Response:
 
 Directory Deletion
 ------------------
+Action: "delete-dirs"
+
+Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
 
 Curl command:
 
@@ -297,6 +330,9 @@ Response:
 
 File Deletion
 -------------
+Action: "delete-files"
+
+Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
 
 Curl command:
 
@@ -313,6 +349,10 @@ Response:
 
 File Preview
 ------------
+Action: "preview"
+
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE, ERR_NOT_A_FILE
+
 
 Curl command:
 
@@ -328,6 +368,9 @@ Response:
 
 File manifest
 -------------
+Action: "manifest"
+
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_A_FILE, ERR_NOT_READABLE
 
 Curl command:
 
@@ -352,8 +395,11 @@ If the raw content is too large a preview will be sent instead. Additionally, if
 
 File/Directory existence
 ------------------------
-
 The /exists endpoint allows the caller to check for the existence of a set of files. The following is an example call to the exists endpoint:
+
+Action(s): N/A
+
+Error codes: N/A
 
 Curl command:
 
@@ -379,8 +425,11 @@ The following commands allow the caller to set attributes on files in iRODS. iRO
 
 Setting File and Directory Metadata
 ------------------------------------
-
 Note the single-quotes around the request URL in the curl command. To associate metadata with a directory, change the path portion of the request url to '/directory/metadata' (minus the quotes) and make sure that the path indicated in the query string is a directory instead of a file.
+
+Action: "set-metadata"
+
+Error codes: ERR_INVALID_JSON, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
 
 Curl command:
 
@@ -398,6 +447,9 @@ Response:
 
 Setting File and Directory Metadata Batch
 -----------------------------------------
+Action: "set-metadata-batch"
+
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
 
 The endpoints for this command are /directory/metadata-batch and /file/metadata-batch. It accepts a POST request containing JSON in the following format:
 
@@ -438,6 +490,9 @@ Response:
 
 Getting File and Directory Metadata
 ------------------------------------
+Action: "get-metadata"
+
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE
 
 Note the single-quotes around the request URL in the curl command. Also note that the metadata returned in the "metadata" field is in a list, since this command returns all of the metadata associated with a file or directory.
 
@@ -464,6 +519,9 @@ Response:
 
 Deleting File and Directory Metadata
 ------------------------------------
+Action: "delete-metadata"
+
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
 
 As before, note the single-quotes around the request URLs in the curl command. To get the directory version of the command, replace the path portion of the URL with '/directory/metadata' and make sure that the path indicated in the query portion of the URL points to a directory.
 
@@ -483,10 +541,13 @@ Response:
 
 Setting a Tree URL for a File
 -----------------------------
-
 Multiple tree URLs can be associated with a file. To support this, multiple POSTs of tree-urls for the same file will append the URLs to the list stored in iRODS. Multiple tree URLs can be associated with a file in a single request. You still need to place a URL in a list even if you're only associated one URL with a file.
 
 Something to note is that we're not checking to make sure that the strings in the 'tree-urls' list are actually URLs. This is intentional and will hopefully make migrating to a token based tree retrieval a little simpler.
+
+Action: "set-tree-urls"
+
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
 
 Curl command:
 
@@ -504,6 +565,10 @@ Response:
 
 Getting a Tree URL for a File
 -----------------------------
+
+Action: "get-tree-urls"
+
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
 
 Curl command:
 
