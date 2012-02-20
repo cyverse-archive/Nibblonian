@@ -6,14 +6,15 @@
 Summary: nibblonian
 Name: nibblonian
 Version: 0.1.0
-Release: 2
+Release: 3
 Epoch: 0
 BuildArchitectures: noarch
 Group: Applications
 BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
 License: BSD
 Provides: nibblonian
-Requires: iplant-service-config
+Requires: iplant-service-config iplant-service-config >= 0.1.0-4
+Conflicts: iplant-service-config iplant-service-config <= 0.1.0-3
 Source0: %{name}-%{version}.tar.gz
 
 %description
