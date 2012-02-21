@@ -7,7 +7,8 @@
             [clojure-commons.file-utils :as ft]
             [clojure.string :as string])
   (:use [clj-jargon.jargon]
-        [nibblonian.error-codes]))
+        [nibblonian.error-codes]
+        [slingshot.slingshot :only [try+ throw+]]))
 
 (def IPCRESERVED "ipc-reserved-unit")
 
@@ -39,44 +40,36 @@
   ([user path include-files]
      (log/debug (str "list-dir " user " " path))
      (with-jargon
-       (cond 
-         (not (user-exists? user))
-         {:action "list-dir" 
-          :status "failure" 
-          :error_code ERR_NOT_A_USER 
-          :reason "user does not exist"
-          :user user}
-         
-         (not (is-readable? user path))
-         {:action "list-dir"
-          :status "failure"
-          :error_code ERR_NOT_READABLE
-          :reason "is not readable"
-          :path path
-          :user user}
-         
-         :else
-         (let [data   (list-all (ft/rm-last-slash path))
-               groups (group-by (fn [datum] (. datum isCollection)) data)
-               files  (get groups false)
-               dirs   (get groups true)
-               retval (if include-files
-                        {:id path
-                         :label         (ft/basename path)
-                         :hasSubDirs    (> (count dirs) 0)
-                         :date-created  (created-date path)
-                         :date-modified (lastmod-date path)
-                         :permissions   (collection-perm-map user path)
-                         :files         (filter-unreadable (map (fn [f] (sub-file-maps user f)) files)) 
-                         :folders       (filter-unreadable (map (fn [d] (sub-dir-maps user d)) dirs))}
-                        {:id path
-                         :date-created  (created-date path)
-                         :date-modified (lastmod-date path)
-                         :permissions   (collection-perm-map user path)
-                         :hasSubDirs    (> (count dirs) 0)
-                         :label         (ft/basename path)
-                         :folders       (filter-unreadable (map (fn [d] (sub-dir-maps user d)) dirs))})]
-           retval)))))
+       (when (not (user-exists? user))
+         (throw+ {:error_code ERR_NOT_A_USER
+                  :user user}))
+       
+       (when (not (is-readable? user path))
+         (throw+ {:error_code ERR_NOT_READABLE
+                  :path path
+                  :user user}))
+       
+       (let [data   (list-all (ft/rm-last-slash path))
+             groups (group-by (fn [datum] (. datum isCollection)) data)
+             files  (get groups false)
+             dirs   (get groups true)
+             retval (if include-files
+                      {:id path
+                       :label         (ft/basename path)
+                       :hasSubDirs    (> (count dirs) 0)
+                       :date-created  (created-date path)
+                       :date-modified (lastmod-date path)
+                       :permissions   (collection-perm-map user path)
+                       :files         (filter-unreadable (map (fn [f] (sub-file-maps user f)) files)) 
+                       :folders       (filter-unreadable (map (fn [d] (sub-dir-maps user d)) dirs))}
+                      {:id path
+                       :date-created  (created-date path)
+                       :date-modified (lastmod-date path)
+                       :permissions   (collection-perm-map user path)
+                       :hasSubDirs    (> (count dirs) 0)
+                       :label         (ft/basename path)
+                       :folders       (filter-unreadable (map (fn [d] (sub-dir-maps user d)) dirs))})]
+         retval))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
@@ -89,29 +82,18 @@
   [user path]
   (log/debug (str "create " user " " path))
   (with-jargon
-    (cond
-      (not (collection-writeable? user (ft/dirname path)))
-      {:action "create"
-       :path path
-       :status "failure"
-       :error_code ERR_NOT_WRITEABLE
-       :reason "parent directory not writeable"}
-      
-      (exists? path)
-      {:action "create" 
-       :path path 
-       :status "failure"
-       :error_code ERR_EXISTS
-       :reason "already exists"}
-      
-      :else
-      (do 
-        (mkdir path)
-        (set-owner path user)
-        {:action "create" 
-         :path path 
-         :status "success" 
-         :permissions (collection-perm-map user path)}))))
+    (when (not (collection-writeable? user (ft/dirname path)))
+      (throw+ {:path path
+               :error_code ERR_NOT_WRITEABLE}))
+    
+    (when (exists? path)
+      (throw+ {:path path
+               :error_code ERR_EXISTS}))
+    
+    (mkdir path)
+    (set-owner path user)
+    {:path path 
+     :permissions (collection-perm-map user path)}))
 
 (defn- del
   "Performs some validation and calls delete.
@@ -121,176 +103,132 @@
      paths - a sequence of strings containing directory paths.
 
    Returns a map describing the success or failure of the deletion command."
-  [user paths type-func? action type-error]
+  [user paths type-func? type-error]
   (with-jargon
-    (cond
-      ;Make sure all of the paths exist.
-      (not (paths-exist? paths))
-      {:action action
-       :reason "does not exist" 
-       :paths (into [] (for [path paths :when (not (exists? path))] path))
-       :status "failure"
-       :error_code ERR_DOES_NOT_EXIST} 
-      
-      ;Make sure all of the paths are writeable.
-      (not (paths-writeable? user paths))
-      {:action action
-       :reason "is not writeable" 
-       :paths (into [] (for [path paths :when (not (is-writeable? user path))] path)) 
-       :status "failure"
-       :error_code ERR_NOT_WRITEABLE}
-      
-      ;Make sure all of the paths are directories.
-      (not (every? true? (map #(type-func? %) paths)))
-      {:action action
-       :status "failure"
-       :error_code type-error
-       :reason "is not a dir"
-       :paths (into [] (for [p paths :when (not (type-func? p))] p))}
-      
-      :else
-      (do (into [] (map delete paths))
-        {:action action :status "success" :paths paths}))))
-      ;;(let [results ]
-        ;;(if (== 0 (count results))
-          ;;{:action action :status "success" :paths paths}
-          ;;{:action action 
-           ;;:status "failure"
-           ;;:error_code ERR_INCOMPLETE_DELETION
-           ;;:paths results})))))
+    ;Make sure all of the paths exist.
+    (when (not (paths-exist? paths))
+      (throw+ {:paths (into [] (for [path paths :when (not (exists? path))] path))
+               :error_code ERR_DOES_NOT_EXIST})) 
+    
+    ;Make sure all of the paths are writeable.
+    (when (not (paths-writeable? user paths))
+      (throw+ {:paths (into [] (for [path paths :when (not (is-writeable? user path))] path))
+               :error_code ERR_NOT_WRITEABLE}))
+    
+    ;Make sure all of the paths are directories.
+    (when (not (every? true? (map #(type-func? %) paths)))
+      (throw+ {:error_code type-error
+               :paths (into [] (for [p paths :when (not (type-func? p))] p))}))
+    
+    (doseq [p paths] 
+      (delete p))
+    
+    {:paths paths}))
 
 (defn delete-dirs
   [user paths]
-  (del user paths is-dir? "delete-dirs" ERR_NOT_A_FOLDER))
+  (del user paths is-dir? ERR_NOT_A_FOLDER))
 
 (defn delete-files
   [user paths]
-  (del user paths is-file? "delete-files" ERR_NOT_A_FILE))
+  (del user paths is-file? ERR_NOT_A_FILE))
 
 (defn- mv
   "Moves directories listed in 'sources' into the directory listed in 'dest'. This
    works by calling move and passing it move-dir."
-  [user sources dest type-func? action type-error]
+  [user sources dest type-func? type-error]
   (with-jargon
     (let [path-list  (conj sources dest)
           dest-paths (into [] (map #(ft/path-join dest (ft/basename %)) sources))
           types?     (every? true? (map #(type-func? %) sources))]
-      (cond
-        ;Make sure that all source paths in the request actually exist.
-        (not (paths-exist? sources))
-        {:action action
-         :status "failure" 
-         :error_code ERR_DOES_NOT_EXIST 
-         :reason "does not exist" 
-         :paths (into [] (for [path sources :when (not (exists? path))] path))}
-        
-        ;Make sure that the destination directory actually exists.
-        (not (exists? dest))
-        {:action action 
-         :status "failure" 
-         :error_code ERR_DOES_NOT_EXIST 
-         :reason "does not exist" 
-         :paths [dest]}
-        
-        ;dest must be a directory.
-        (not (is-dir? dest))
-        {:action action
-         :status "failure"
-         :error_code ERR_NOT_A_FOLDER
-         :reason "is not a directory."
-         :path dest}
-        
-        ;Make sure all the paths in the request are writeable.
-        (not (paths-writeable? user sources))
-        {:action action 
-         :status "failure" 
-         :error_code ERR_NOT_WRITEABLE 
-         :reason "is not writeable" 
-         :paths (into [] (for [path sources :when (not (is-writeable? user path))] path))}
-        
-        ;Make sure the destination directory is writeable.
-        (not (is-writeable? user dest))
-        {:action action
-         :status "failure"
-         :error_code ERR_NOT_WRITEABLE
-         :reason "is not writeable"
-         :path (ft/dirname dest)}
-        
-        ;Make sure that the destination paths don't exist already.
-        (not (every? false? (map exists? dest-paths)))
-        {:action action 
-         :status "failure" 
-         :reason "exists"
-         :error_code ERR_EXISTS
-         :paths (into [] (filter (fn [p] (exists? p)) dest-paths))}
-        
-        ;Make sure that everything in sources is the correct type.
-        (not types?)
-        {:action action
-         :status "failure"
-         :paths path-list}
-        
-        :else
-        (do (move-all sources dest)
-          {:action action :status "success" :sources sources :dest dest})))))
-        
+      ;Make sure that all source paths in the request actually exist.
+      (when (not (paths-exist? sources))
+        (throw+ {:error_code ERR_DOES_NOT_EXIST 
+                 :paths (into [] (for [path sources :when (not (exists? path))] path))}))
+      
+      ;Make sure that the destination directory actually exists.
+      (when (not (exists? dest))
+        (throw+ {:error_code ERR_DOES_NOT_EXIST  
+                 :paths [dest]}))
+      
+      ;dest must be a directory.
+      (when (not (is-dir? dest))
+        (throw+ {:error_code ERR_NOT_A_FOLDER
+                 :path dest}))
+      
+      ;Make sure all the paths in the request are writeable.
+      (when (not (paths-writeable? user sources))
+        (throw+ {:error_code ERR_NOT_WRITEABLE
+                 :paths (into [] (for [path sources :when (not (is-writeable? user path))] path))}))
+      
+      ;Make sure the destination directory is writeable.
+      (when (not (is-writeable? user dest))
+        (throw+ {:error_code ERR_NOT_WRITEABLE
+                 :path (ft/dirname dest)}))
+      
+      ;Make sure that the destination paths don't exist already.
+      (when (not (every? false? (map exists? dest-paths)))
+        (throw+ {:error_code ERR_EXISTS
+                 :paths (into [] (filter (fn [p] (exists? p)) dest-paths))}))
+      
+      ;Make sure that everything in sources is the correct type.
+      (when (not types?)
+        (throw+ {:error_code type-error
+                 :paths path-list}))
+      
+      (move-all sources dest)
+      {:sources sources :dest dest})))
+
 (defn move-directories
   [user sources dest]
-  (mv user sources dest is-dir? "move-dirs" ERR_NOT_A_FOLDER))
+  (mv user sources dest is-dir? ERR_NOT_A_FOLDER))
 
 (defn move-files
   [user sources dest]
-  (mv user sources dest is-file? "move-files" ERR_NOT_A_FILE))
+  (mv user sources dest is-file? ERR_NOT_A_FILE))
 
 (defn- rname
   "High-level file renaming. Calls rename-func, passing it file-rename as the mv-func param."
-  [user source dest type-func? action type-error]
+  [user source dest type-func? type-error]
   (with-jargon
-    (cond
-      (not (exists? source))
-      {:action action
-       :reason "exists" 
-       :path source 
-       :status "failure"
-       :error_code ERR_DOES_NOT_EXIST}
-      
-      (not (is-writeable? user source))
-      {:action action
-       :status "failure" 
-       :reason "not writeable"
-       :error_code ERR_NOT_WRITEABLE
-       :path source}
-      
-      (not (type-func? source))
-      {:action action 
-       :status "failure" 
-       :paths source
-       :error_code type-error}
-      
-      (exists? dest)
-      {:action action 
-       :status "failure" 
-       :error_code ERR_EXISTS
-       :reason "exists" 
-       :path dest}
-      
-      :else
-      (let [result (move source dest)]
-        (if (nil? result)
-          {:action action :status "success" :source source :dest dest :user user}
-          {:action action 
-           :status "failure"
-           :error_code ERR_INCOMPLETE_RENAME
-           :paths result
-           :user user})))))
+    (when (not (exists? source))
+      (throw+ {:path source
+               :error_code ERR_DOES_NOT_EXIST}))
+    
+    (when (not (is-writeable? user source))
+      (throw+ {:error_code ERR_NOT_WRITEABLE
+               :path source}))
+    
+    (when (not (type-func? source))
+      (throw+ {:paths source
+               :error_code type-error}))
+    
+    (when (exists? dest)
+      (throw+ {:error_code ERR_EXISTS
+               :path dest}))
+    
+    (let [result (move source dest)]
+      (when (not (nil? result))
+        (throw+ {:error_code ERR_INCOMPLETE_RENAME
+                 :paths result
+                 :user user}))
+      {:source source :dest dest :user user})))
 
 (defn rename-file
   [user source dest]
-  (rname user source dest is-file? "rename-file" ERR_NOT_A_FILE))
+  (rname user source dest is-file? ERR_NOT_A_FILE))
 
 (defn rename-directory
   [user source dest]
-  (rname user source dest is-dir? "rename-directory" ERR_NOT_A_FOLDER))
+  (rname user source dest is-dir? ERR_NOT_A_FOLDER))
+
+(defn- preview-buffer
+  [path size]
+  (let [realsize (file-size path)
+        buffsize (if (<= realsize size) realsize size)
+        buff (char-array buffsize)]
+    (read-file path buff)
+    (. (StringBuilder.) append buff)))
 
 (defn preview
   "Grabs a preview of a file in iRODS.
@@ -302,38 +240,20 @@
   [user path size]
   (with-jargon
     (log/debug (str "preview " user " " path " " size))
-    (cond
-      (not (exists? path))
-      {:action "preview" 
-       :status "failed" 
-       :reason "Does not exist."
-       :error_code ERR_DOES_NOT_EXIST
-       :path path}
-      
-      (not (is-readable? user path))
-      {:action "preview" 
-       :status "failed" 
-       :reason "Is not readable." 
-       :path path
-       :error_code ERR_NOT_READABLE}
-      
-      (not (is-file? path))
-      {:action "preview" 
-       :status "failure" 
-       :reason "isn't a file"
-       :error_code ERR_NOT_A_FILE
-       :path path 
-       :user user}
-      
-      :else
-      (.
-        (let [realsize (file-size path)
-              buffsize (if (<= realsize size) realsize size)
-              buff (char-array buffsize)]
-          (do
-            (read-file path buff)
-            (. (StringBuilder.) append buff)))
-        toString))))
+    (when (not (exists? path))
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :path path}))
+    
+    (when (not (is-readable? user path))
+      (throw+ {:path path
+               :error_code ERR_NOT_READABLE}))
+    
+    (when (not (is-file? path))
+      (throw+ {:error_code ERR_NOT_A_FILE
+               :path path 
+               :user user}))
+    
+    (.toString (preview-buffer path size))))
 
 (defn user-home-dir
   [staging-dir user set-owner?]
@@ -350,126 +270,103 @@
         (mkdirs user-home))
       user-home)))
 
-(defn fail-resp
-  [action status reason error-code]
-  {:action action :status status :reason reason :error_code error-code})
-
 (defn metadata-get
   [user path]
   (with-jargon
-    (cond
-      (not (exists? path))
-      (fail-resp "get-metadata" "failure" "Path doesn't exist." ERR_DOES_NOT_EXIST)
-      
-      (not (is-readable? user path))
-      (fail-resp "get-metadata" "failure" "Path isn't readable by user" ERR_NOT_READABLE)
-      
-      :else
-      (let [avu (map 
-                  #(if (= (:unit %1) IPCRESERVED) 
-                     (assoc %1 :unit "") 
-                     %1) 
-                  (get-metadata (ft/rm-last-slash path)))]
-        {:action "get-metadata"
-         :status "success"
-         :metadata avu}))))
+    (when (not (exists? path))
+      (throw+ {:error_code ERR_DOES_NOT_EXIST}))
+    
+    (when (not (is-readable? user path))
+      (throw+ {:error_code ERR_NOT_READABLE}))
+    
+    (let [fix-unit #(if (= (:unit %1) IPCRESERVED) (assoc %1 :unit "") %1)
+          avu (map fix-unit (get-metadata (ft/rm-last-slash path)))]
+      {:metadata avu})))
 
 (defn get-tree
   [user path]
   (with-jargon
-    (cond
-      (not (exists? path))
-      (fail-resp "get-tree-urls" "failure" "Path doesn't exist." ERR_DOES_NOT_EXIST)
-      
-      (not (is-readable? user path))
-      (fail-resp "get-tree-urls" "failure" "Path isn't readable by user" ERR_NOT_READABLE)
-      
-      :else
-      (let [value (:value (first (get-attribute path "tree-urls")))]
-        (log/warn value)
-        (json/read-json value)))))
+    (when (not (exists? path))
+      (throw+ {:error_code ERR_DOES_NOT_EXIST}))
+    
+    (when (not (is-readable? user path))
+      (throw+ {:error_code ERR_NOT_READABLE}))
+    
+    (let [value (:value (first (get-attribute path "tree-urls")))]
+      (log/warn value)
+      (json/read-json value))))
 
 (defn metadata-set
   [user path avu-map]
   (with-jargon
-    (cond
-      (= "failure" (:status avu-map))
-      (fail-resp "set-metadata" "failure" "Bad JSON." ERR_INVALID_JSON)
-      
-      (not (exists? path))
-      (fail-resp "set-metadata" "failure" "Path doesn't exist." ERR_DOES_NOT_EXIST)
-      
-      (not (is-writeable? user path))
-      (fail-resp "set-metadata" "failure" "Path isn't writeable by user." ERR_NOT_WRITEABLE)
-      
-      :else
-      (do
-        (let [new-path (ft/rm-last-slash path)
-              new-attr (:attr avu-map)
-              new-val  (:value avu-map)
-              new-unit (if (string/blank? (:unit avu-map)) IPCRESERVED (:unit avu-map))]
-          (set-metadata new-path new-attr new-val new-unit)
-          {:action "set-metadata" :status "success" :path new-path :user user})))))
+    (when (= "failure" (:status avu-map))
+      (throw+ {:error_code ERR_INVALID_JSON}))
+    
+    (when (not (exists? path))
+      (throw+ {:error_code ERR_DOES_NOT_EXIST}))
+    
+    (when (not (is-writeable? user path))
+      (throw+ {:error_code ERR_NOT_WRITEABLE}))
+    
+    (let [new-path (ft/rm-last-slash path)
+          new-attr (:attr avu-map)
+          new-val  (:value avu-map)
+          new-unit (if (string/blank? (:unit avu-map)) IPCRESERVED (:unit avu-map))]
+      (set-metadata new-path new-attr new-val new-unit)
+      {:path new-path :user user})))
 
 (defn metadata-batch-set
   [user path adds-dels]
   (with-jargon
-    (cond
-      (not (exists? path))
-      (fail-resp "set-metadata-batch" "failure" "Path doesn't exist." ERR_DOES_NOT_EXIST)
+    (when (not (exists? path))
+      (throw+ {:error_code ERR_DOES_NOT_EXIST}))
+    
+    (when (not (is-writeable? user path))
+      (throw+ {:error_code ERR_NOT_WRITEABLE}))
+    
+    (let [adds     (:add adds-dels)
+          dels     (:delete adds-dels)
+          new-path (ft/rm-last-slash path)]
       
-      (not (is-writeable? user path))
-      (fail-resp "set-metadata-batch" "failure" "Path isn't writeable by user." ERR_NOT_WRITEABLE)
+      (doseq [del dels]
+        (if (attribute? new-path del)
+          (delete-metadata new-path del)))
       
-      :else
-      (let [adds     (:add adds-dels)
-            dels     (:delete adds-dels)
-            new-path (ft/rm-last-slash path)]
-        
-        (doseq [del dels]
-          (if (attribute? new-path del)
-            (delete-metadata new-path del)))
-        
-        (doseq [avu adds]
-          (let [new-attr (:attr avu)
-                new-val  (:value avu)
-                new-unit (if (string/blank? (:unit avu)) IPCRESERVED (:unit avu))]
-            (set-metadata new-path new-attr new-val new-unit)))
-        {:action "set-metadata-batch" :status "success" :path (ft/rm-last-slash path) :user user}))))
+      (doseq [avu adds]
+        (let [new-attr (:attr avu)
+              new-val  (:value avu)
+              new-unit (if (string/blank? (:unit avu)) IPCRESERVED (:unit avu))]
+          (set-metadata new-path new-attr new-val new-unit)))
+      {:path (ft/rm-last-slash path) :user user})))
 
 (defn set-tree
   [user path tree-urls]
   (with-jargon
-    (cond
-      (not (exists? path))
-      (fail-resp "set-tree-urls" "failure" "Path doesn't exist." ERR_DOES_NOT_EXIST)
-      
-      (not (is-writeable? user path))
-      (fail-resp "set-tree-urls" "failure" "Path isn't writeable by user." ERR_NOT_WRITEABLE)
-      
-      :else
-      (let [tree-urls (:tree-urls tree-urls)
-            curr-val  (if (attribute? meta path "tree-urls")
-                        (json/read-json (:value (first (get-attribute path "tree-urls"))))
-                        [])
-            new-val (json/json-str (flatten (conj curr-val tree-urls)))]
-        (set-metadata path "tree-urls" new-val "")
-        {:action "set-tree-urls" :status "success" :path path :user user}))))
+    (when (not (exists? path))
+      (throw+ {:error_code ERR_DOES_NOT_EXIST}))
+    
+    (when (not (is-writeable? user path))
+      (throw+ {:error_code ERR_NOT_WRITEABLE}))
+    
+    (let [tree-urls (:tree-urls tree-urls)
+          curr-val  (if (attribute? meta path "tree-urls")
+                      (json/read-json (:value (first (get-attribute path "tree-urls"))))
+                      [])
+          new-val (json/json-str (flatten (conj curr-val tree-urls)))]
+      (set-metadata path "tree-urls" new-val "")
+      {:path path :user user})))
 
 (defn metadata-delete
   [user path attr]
   (with-jargon
-    (cond
-     (not (exists? path))
-     (fail-resp "delete-metadata" "failure" "Path doesn't exist." ERR_DOES_NOT_EXIST)
-     
-     (not (is-writeable? user path))
-     (fail-resp "delete-metadata" "failure" "Path isn't writeable by user." ERR_NOT_WRITEABLE)
-     
-     :else
-     (do
-       (delete-metadata path attr)
-       {:action "delete-metadata" :status "success" :path path :user user}))))
+    (when (not (exists? path))
+      (throw+ {:error_code ERR_DOES_NOT_EXIST}))
+    
+    (when (not (is-writeable? user path))
+      (throw+ {:error_code ERR_NOT_WRITEABLE}))
+    
+    (delete-metadata path attr)
+    {:path path :user user}))
 
 (defn path-exists?
   [path]
@@ -496,65 +393,51 @@
 (defn manifest
   [user path data-threshold]
   (with-jargon
-    (cond
-      (not (exists? path))
-      (fail-resp "manifest" "failure" "path doesn't exist." ERR_DOES_NOT_EXIST)
-      
-      (not (is-file? path))
-      (fail-resp "manifest" "failure" "path isn't a file." ERR_NOT_A_FILE)
-      
-      (not (is-readable? user path))
-      (fail-resp "manifest" "failure" "path isn't readable." ERR_NOT_READABLE)
-      
-      :else
-      (let [manifest         {:action "manifest"
-                              :tree-urls (format-tree-urls (get-attribute path "tree-urls"))}
-            file-size        (file-size path)
-            preview-path     (str "file/preview?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path))
-            rawcontents-path (str "display-download?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path))
-            rc-no-disp       (str rawcontents-path "&attachment=0")]
-        (cond
-          (extension? path ".png")
-          (merge manifest {:png rawcontents-path})
-          
-          (extension? path ".pdf")
-          (merge manifest {:pdf rc-no-disp})
-          
-          :else
-          (merge manifest {:preview preview-path}))))))
-
-(defn- get-download-stream
-  [user file-path]
-  (with-jargon
-    (cond
-      (not (exists? file-path))
-      {:status 404 
-       :body (str "File " file-path " does not exist.")}
-      
-      (not (is-readable? user file-path))
-      {:status 400 
-       :body (str "File " file-path " isn't writeable.")}
-      
-      :else
-      (input-stream file-path))))
+    (when (not (exists? path))
+      (throw+ {:error_code ERR_DOES_NOT_EXIST}))
+    
+    (when (not (is-file? path))
+      (throw+ {:error_code ERR_NOT_A_FILE}))
+    
+    (when (not (is-readable? user path))
+      (throw+ {:error_code ERR_NOT_READABLE}))
+    
+    (let [manifest         {:action "manifest"
+                            :tree-urls (format-tree-urls (get-attribute path "tree-urls"))}
+          file-size        (file-size path)
+          preview-path     (str "file/preview?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path))
+          rawcontents-path (str "display-download?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path))
+          rc-no-disp       (str rawcontents-path "&attachment=0")]
+      (cond
+        (extension? path ".png")
+        (merge manifest {:png rawcontents-path})
+        
+        (extension? path ".pdf")
+        (merge manifest {:pdf rc-no-disp})
+        
+        :else
+        (merge manifest {:preview preview-path})))))
 
 (defn download-file
-  "Returns a response map filled out with info that lets the client download
-   a file."
   [user file-path]
-  (let [istream (get-download-stream user file-path)]
-    (if (map? istream)
-      istream
-      {:status 200 :body istream})))
+  (with-jargon
+    (when (not (exists? file-path))
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :path file-path}))
+    
+    (when (not (is-readable? user file-path))
+      (throw+ {:error_code ERR_NOT_WRITEABLE 
+               :path file-path}))
+    
+    (input-stream file-path)))
 
 (defn download
   [user filepaths]
   (with-jargon
-    (if (not (user-exists? user))
-      {:status "failure"
-       :action "download"
-       :error_code ERR_NOT_A_USER}
-      (let [cart-key   (str (System/currentTimeMillis))
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER}))
+    
+    (let [cart-key   (str (System/currentTimeMillis))
           account    (:irodsAccount cm)
           irods-host (.getHost account)
           irods-port (.getPort account)
@@ -572,31 +455,30 @@
         :port irods-port
         :zone irods-zone
         :defaultStorageResource irods-dsr
-        :key cart-key}}))))
+        :key cart-key}})))
 
 (defn upload
   [user]
   (with-jargon
-    (if (not (user-exists? user))
-      {:status "failure"
-       :action "upload"
-       :error_code ERR_NOT_A_USER}
-      (let [cart-key   (str (System/currentTimeMillis))
-            account    (:irodsAccount cm)
-            irods-host (.getHost account)
-            irods-port (.getPort account)
-            irods-zone (.getZone account)
-            user-home  (ft/path-join "/" @zone "home" user)
-            irods-dsr  (.getDefaultStorageResource account)
-            passwd     (temp-password user)]
-        {:action "upload"
-         :status "success"
-         :data
-         {:user user
-          :home user-home
-          :password passwd
-          :host irods-host
-          :port irods-port
-          :zone irods-zone
-          :defaultStorageResource irods-dsr
-          :key cart-key}}))))
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER}))
+    
+    (let [cart-key   (str (System/currentTimeMillis))
+          account    (:irodsAccount cm)
+          irods-host (.getHost account)
+          irods-port (.getPort account)
+          irods-zone (.getZone account)
+          user-home  (ft/path-join "/" @zone "home" user)
+          irods-dsr  (.getDefaultStorageResource account)
+          passwd     (temp-password user)]
+      {:action "upload"
+       :status "success"
+       :data
+       {:user user
+        :home user-home
+        :password passwd
+        :host irods-host
+        :port irods-port
+        :zone irods-zone
+        :defaultStorageResource irods-dsr
+        :key cart-key}})))

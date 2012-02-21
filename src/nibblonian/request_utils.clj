@@ -1,5 +1,6 @@
 (ns nibblonian.request-utils
-  (:use [nibblonian.error-codes])
+  (:use [nibblonian.error-codes]
+        [slingshot.slingshot :only [try+ throw+]])
   (:require [clojure.data.json :as json]
             [clojure.tools.logging :as log]
             [ring.util.response :as rsp-utils]))
@@ -50,13 +51,9 @@
     (let [obj (json/read-json json-string)]
       (if (map-is-valid? obj map-spec)
         obj
-        {:status "failure"
-         :reason "Bad or missing field"
-         :error_code ERR_BAD_OR_MISSING_FIELD
-         :fields (invalid-fields obj map-spec)}))
-    {:status "failure" 
-     :reason "Invalid JSON" 
-     :error_code ERR_INVALID_JSON}))
+        (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+                 :fields (invalid-fields obj map-spec)})))
+    (throw+ {:error_code ERR_INVALID_JSON})))
 
 (defn query-param
   "Grabs the 'field' from the query string associated
@@ -127,32 +124,22 @@
 
 (defn bad-body 
   [request body-spec]
-  (cond
-    (not (map? (:body request)))
-    {:status "failure"
-     :action "body-check"
-     :error_code ERR_INVALID_JSON
-     :reason "Invalid JSON"}
-    
-    (not (map-is-valid? (:body request) body-spec))
-    {:status "failure"
-     :reason "Bad or missing field"
-     :error_code ERR_BAD_OR_MISSING_FIELD
-     :fields (invalid-fields  (:body request) body-spec)}
-    
-    :else
-    {:status "success"}))
+  (when (not (map? (:body request)))
+    (throw+ {:error_code ERR_INVALID_JSON}))
+  
+  (when (not (map-is-valid? (:body request) body-spec))
+    (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+             :fields (invalid-fields  (:body request) body-spec)}))
+  
+  {:status "success"})
 
-(defn bad-query [key action]
-  (create-response
-    {:action action
-     :status "failure"
-     :error_code ERR_MISSING_QUERY_PARAMETER
-     :reason (str "missing " key " query parameter")}))
+(defn bad-query [key]
+  (throw+ {:error_code ERR_MISSING_QUERY_PARAMETER
+           :reason (str "missing " key " query parameter")}))
 
 (defn fail-resp
-  [action status reason]
-  (create-response {:action action :status status :reason reason}))
+  [reason]
+  (throw+ {:reason reason}))
 
 (defn multipart-inputfile
   "Extracts the location of an uploaded files temp location from
