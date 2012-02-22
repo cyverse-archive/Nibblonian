@@ -42,48 +42,48 @@
        (trap "upload"  do-upload request))
   
   (GET "/directory" request
-       (trap "directory" do-directory request))
+       (trap "list-dir" do-directory request))
   
   (POST "/directory/create" request
-        (trap "directory-create"  do-create request))
+        (trap "create"  do-create request))
   
   (POST "/directory/rename" request
-        (trap "directory-rename" 
+        (trap "rename-directory" 
                do-rename request irods-actions/rename-directory))
   
   (POST "/file/rename" request
-        (trap "file-rename"  do-rename request irods-actions/rename-file))
+        (trap "rename-file"  do-rename request irods-actions/rename-file))
   
   (POST "/directory/delete" request
-        (trap "directory-delete" 
+        (trap "delete-dirs" 
                do-delete request irods-actions/delete-dirs))
   
   (POST "/file/delete" request
-        (trap "file-delete"
+        (trap "delete-files"
                do-delete request irods-actions/delete-files))
   
   (POST "/directory/move" request
-        (trap "directory-move" 
+        (trap "move-dirs" 
                do-move request irods-actions/move-directories))
   
   (POST "/file/move" request
-        (trap "file-move" 
+        (trap "move-files" 
                do-move request irods-actions/move-files))
   
   (GET "/file/download" request
-       (trap "file-download" 
+       (trap "download" 
               do-download request))
   
   (GET "/file/preview" request
-       (trap "file-preview" 
+       (trap "preview" 
               do-preview request))
   
   (GET "/file/manifest" request
-       (trap "file-manifest" 
+       (trap "manifest" 
               do-manifest request))
   
   (GET "/file/metadata" request
-       (trap "get-file-metadata" 
+       (trap "get-metadata" 
               do-metadata-get request))
   
   (GET "/file/tree-urls" request
@@ -91,11 +91,11 @@
               do-tree-get request))
   
   (GET "/directory/metadata" request
-       (trap "directory-metadata" 
+       (trap "get-metadata" 
               do-metadata-get request))
   
   (POST "/file/metadata" request
-        (trap "file-metadata" 
+        (trap "set-metadata" 
                do-metadata-set request))
   
   (POST "/file/metadata-batch" request
