@@ -23,28 +23,6 @@
             [nibblonian.irods-actions :as irods-actions])
   (:import [org.irods.jargon.core.exception JargonRuntimeException JargonException]))
 
-(defn- do-apply
-  [func & args]
-  (let [retval {:succeeded true :retval nil :exception nil}]
-    (try+
-      (assoc retval :retval (apply func args))
-      (catch error? err
-        (assoc retval :exception (:object &throw-context) :succeeded false))
-      (catch java.lang.Exception e
-        (assoc retval :exception (unchecked &throw-context) :succeeded false)))))
-
-(defn retry
-  "Re-attempts a request a configurable number of times if a request fails."
-  [func & args]
-  (loop [num-tries 0]
-    (let [attempt (apply do-apply (concat [func] args))]
-      (if (and (not (:succeeded attempt)) (< num-tries (max-retries)))
-        (do (Thread/sleep (retry-sleep))
-          (recur (+ num-tries 1)))
-        (if (:succeeded attempt)
-          (:retval attempt)
-          (throw+ (:exception attempt)))))))
-
 (defroutes nibblonian-routes
   (GET "/" [] "Welcome to Nibblonian!")
   

@@ -58,7 +58,9 @@
     (get @props "nibblonian.irods.password")
     (get @props "nibblonian.irods.home")
     (get @props "nibblonian.irods.zone")
-    (get @props "nibblonian.irods.defaultResource")))
+    (get @props "nibblonian.irods.defaultResource")
+    (max-retries)
+    (retry-sleep)))
 
 (defn super-user?
   [username]
