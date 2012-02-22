@@ -14,10 +14,24 @@
 
 (defn filter-unreadable
   [metadata-list]
-   (into [] (filter
-              (fn [m]
-                (:read (:permissions m)))
-              metadata-list)))
+   (into [] (filter #(:read (:permissions %)) metadata-list)))
+
+(defn filter-labels
+  [files filter-files]
+  (let [ff (set filter-files)]
+    (into [] (filter #(not (contains? ff (:label %))) files))))
+
+(defn file-list
+  [user files filter-files]
+  (into [] (-> (map #(sub-file-maps user %) files)
+             filter-unreadable
+             (filter-labels filter-files))))
+
+(defn dir-list
+  [user dirs filter-files]
+  (into [] (-> (map #(sub-dir-maps user %) dirs)
+             filter-unreadable
+             (filter-labels filter-files))))
 
 (defn list-dir
   "A non-recursive listing of a directory. Contains entries for files.
@@ -34,10 +48,10 @@
 
    Returns:
      A tree of maps as described above."
-  ([user path]
-     (list-dir user path true))
+  ([user path filter-files]
+     (list-dir user path true filter-files))
   
-  ([user path include-files]
+  ([user path include-files filter-files]
      (log/debug (str "list-dir " user " " path))
      (with-jargon
        (when (not (user-exists? user))
@@ -60,15 +74,15 @@
                        :date-created  (created-date path)
                        :date-modified (lastmod-date path)
                        :permissions   (collection-perm-map user path)
-                       :files         (filter-unreadable (map (fn [f] (sub-file-maps user f)) files)) 
-                       :folders       (filter-unreadable (map (fn [d] (sub-dir-maps user d)) dirs))}
+                       :files         (file-list user files filter-files) 
+                       :folders       (dir-list user dirs filter-files)}
                       {:id path
                        :date-created  (created-date path)
                        :date-modified (lastmod-date path)
                        :permissions   (collection-perm-map user path)
                        :hasSubDirs    (> (count dirs) 0)
                        :label         (ft/basename path)
-                       :folders       (filter-unreadable (map (fn [d] (sub-dir-maps user d)) dirs))})]
+                       :folders       (dir-list user dirs filter-files)})]
          retval))))
 
 (defn create

@@ -12,7 +12,8 @@
             [nibblonian.irods-actions :as irods-actions]
             [clojure-commons.clavin-client :as cl]
             [clojure.tools.logging :as log]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            [clojure.string :as string]))
 
 ; Reads in the properties file and assigns props to the map
 (def props (atom nil))
@@ -35,6 +36,9 @@
 
 (defn community-data []
   (get @props "nibblonian.app.community-data"))
+
+(defn filter-files []
+  (string/split (get @props "nibblonian.app.filter-files") #","))
 
 (defn listen-port []
   (Integer/parseInt (get @props "nibblonian.app.listen-port")))
@@ -71,7 +75,7 @@
   (when (super-user? user)
     (throw+ {:error_code ERR_NOT_AUTHORIZED
              :user user}))
-  (irods-actions/list-dir user directory include-files))
+  (irods-actions/list-dir user directory include-files (filter-files)))
 
 (defn do-homedir
   "Returns the home directory for the listed user."
