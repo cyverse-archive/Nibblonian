@@ -96,6 +96,10 @@
   [user path]
   (log/debug (str "create " user " " path))
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (collection-writeable? user (ft/dirname path)))
       (throw+ {:path path
                :error_code ERR_NOT_WRITEABLE}))
@@ -119,6 +123,10 @@
    Returns a map describing the success or failure of the deletion command."
   [user paths type-func? type-error]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     ;Make sure all of the paths exist.
     (when (not (paths-exist? paths))
       (throw+ {:paths (into [] (for [path paths :when (not (exists? path))] path))
@@ -155,6 +163,10 @@
     (let [path-list  (conj sources dest)
           dest-paths (into [] (map #(ft/path-join dest (ft/basename %)) sources))
           types?     (every? true? (map #(type-func? %) sources))]
+      (when (not (user-exists? user))
+        (throw+ {:error_code ERR_NOT_A_USER
+                 :user user}))
+      
       ;Make sure that all source paths in the request actually exist.
       (when (not (paths-exist? sources))
         (throw+ {:error_code ERR_DOES_NOT_EXIST 
@@ -205,6 +217,10 @@
   "High-level file renaming. Calls rename-func, passing it file-rename as the mv-func param."
   [user source dest type-func? type-error]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (exists? source))
       (throw+ {:path source
                :error_code ERR_DOES_NOT_EXIST}))
@@ -254,6 +270,10 @@
   [user path size]
   (with-jargon
     (log/debug (str "preview " user " " path " " size))
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (exists? path))
       (throw+ {:error_code ERR_DOES_NOT_EXIST
                :path path}))
@@ -279,6 +299,10 @@
     Returns:
       A string containing the absolute path of the user's home directory."
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (let [user-home (ft/path-join staging-dir user)]
       (if (not (exists? user-home))
         (mkdirs user-home))
@@ -287,6 +311,10 @@
 (defn metadata-get
   [user path]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (exists? path))
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
@@ -300,6 +328,10 @@
 (defn get-tree
   [user path]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (exists? path))
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
@@ -313,6 +345,10 @@
 (defn metadata-set
   [user path avu-map]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (= "failure" (:status avu-map))
       (throw+ {:error_code ERR_INVALID_JSON}))
     
@@ -332,6 +368,10 @@
 (defn metadata-batch-set
   [user path adds-dels]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (exists? path))
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
@@ -356,6 +396,10 @@
 (defn set-tree
   [user path tree-urls]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (exists? path))
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
@@ -373,6 +417,10 @@
 (defn metadata-delete
   [user path attr]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (exists? path))
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
@@ -407,6 +455,10 @@
 (defn manifest
   [user path data-threshold]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (exists? path))
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
@@ -435,6 +487,10 @@
 (defn download-file
   [user file-path]
   (with-jargon
+    (when (not (user-exists? user))
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
     (when (not (exists? file-path))
       (throw+ {:error_code ERR_DOES_NOT_EXIST
                :path file-path}))
