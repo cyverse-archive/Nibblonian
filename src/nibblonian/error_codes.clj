@@ -30,7 +30,7 @@
 (defn error? [obj] (contains? obj :error_code))
 
 (defn unchecked [throwable-map]
-  {:error-code ERR_UNCHECKED_EXCEPTION
+  {:error_code ERR_UNCHECKED_EXCEPTION
    :message (:message throwable-map)})
 
 (defn err-resp [action err-obj]
