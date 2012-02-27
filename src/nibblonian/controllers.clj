@@ -457,18 +457,18 @@
       ;;; part should be left out.
       (not (query-param? request "attachment"))
       (rsp-utils/header
-        (irods-actions/download-file user path)
+        {:status 200 :body (irods-actions/download-file user path)}
         "Content-Disposition"
         (str "attachment; filename=\"" (utils/basename path) "\""))
       
       (not (attachment? request))
       (rsp-utils/header
-        (irods-actions/download-file user path)
+        {:status 200 :body (irods-actions/download-file user path)}
         "Content-Disposition"
         (str "filename=\"" (utils/basename path) "\""))
       
       :else
       (rsp-utils/header
-        (irods-actions/download-file user path)
+        {:status 200 :body (irods-actions/download-file user path)}
         "Content-Disposition"
         (str "attachment; filename=\"" (utils/basename path) "\"")))))

@@ -41,19 +41,21 @@
            json/json-str)})
 
 (defn success-resp [action retval]
-  {:status 200
-   :body
-   (cond 
-     (map? retval)
-     (-> retval
-       (assoc :status "success"
-              :action action)
-       json/json-str)
-     
-     (not (string? retval))
+  (if (= (:status retval) 200)
+    retval
+    {:status 200
+     :body
+     (cond     
+       (map? retval)
+       (-> retval
+         (assoc :status "success"
+                :action action)
+         json/json-str)
+       
+       (not (string? retval))
      (.toString retval)
      
-     :else retval)})
+     :else retval)}))
 
 (defn format-exception
   "Formats the exception as a string."
