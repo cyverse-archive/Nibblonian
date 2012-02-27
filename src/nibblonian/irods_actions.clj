@@ -407,7 +407,7 @@
       (throw+ {:error_code ERR_NOT_WRITEABLE}))
     
     (let [tree-urls (:tree-urls tree-urls)
-          curr-val  (if (attribute? meta path "tree-urls")
+          curr-val  (if (attribute? path "tree-urls")
                       (json/read-json (:value (first (get-attribute path "tree-urls"))))
                       [])
           new-val (json/json-str (flatten (conj curr-val tree-urls)))]
