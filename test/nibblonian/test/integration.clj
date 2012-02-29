@@ -35,6 +35,14 @@
 (def file-metadata-batch (endpoint "file/metadata-batch"))
 (def tree-urls (endpoint "file/tree-urls"))
 
+(defmacro postpathjson [url body-map user path]
+  `(cl/post ~url
+      {:content-type :json
+       :query-params {"user" ~user
+                      "path" ~path}
+       :body (json/json-str ~body-map)
+       :throw-exceptions false}))
+
 (defmacro postjson [url body-map user]
   `(cl/post ~url
       {:content-type :json
@@ -56,6 +64,10 @@
   (let [reqj {:paths [(user-path dirname)]}]
     (postjson delete-dirs reqj nuser)))
 
+(defn add-avu [fpath attr value unit]
+  (let [req {:attr attr :value value :unit unit}]
+    (postpathjson file-metadata req nuser (user-path fpath))))
+
 (defn put-file [remote-dir local-filepath]
   (shell/bash
     (with-script-language :pallet.stevedore.bash/bash
@@ -76,7 +88,6 @@
     (is (= (:path body) (user-path "test-create0")))
     (is (= (get-in body [:permissions :read]) true))
     (is (= (get-in body [:permissions :write]) true)))
-  
   (delete-dir "test-create0"))
 
 (deftest test-move-files
@@ -192,3 +203,72 @@
     (is (= (:preview body) "testing preview")))
   (delete-dir "test-preview")
   (io/delete-file "test-preview.txt"))
+
+(deftest test-manifest
+  (create-dir "test-manifest")
+  (spit "test-manifest.txt" "testing manifest")
+  (put-file "test-manifest" "test-manifest.txt")
+  (let [resp (getjson manifest nuser "test-manifest/test-manifest.txt")
+        body (json/read-json (:body resp))]
+    (is (= (:status resp) 200))
+    (is (= (:status body) "success"))
+    (is (= (:action body) "manifest"))
+    (is (= (:tree-urls body) []))
+    (is (= (:preview body) (str "file/preview?user=" nuser "&path=%2Fiplant%2Fhome%2F" nuser "%2Ftest-manifest%2Ftest-manifest.txt"))))
+  (delete-dir "test-manifest")
+  (io/delete-file "test-manifest.txt"))
+
+(deftest test-exists
+  (create-dir "test-exists")
+  (create-dir "test-exists1")
+  (let [reqj {:paths [(user-path "test-exists")
+                      (user-path "test-exists1")]}
+        resp (postjson exists reqj nuser)
+        body (json/read-json (:body resp) false)]
+    (is (= (:status resp) 200))
+    (is (= (get body "status") "success"))
+    (is (= (get body "action") "exists"))
+    (is (= (get body "paths") {(str "/iplant/home/" nuser "/test-exists") true
+                               (str "/iplant/home/" nuser "/test-exists1") true})))
+  (delete-dir "test-exists")
+  (delete-dir "test-exists1"))
+
+(deftest test-file-metadata
+  (create-dir "test-file-metadata")
+  (spit "test-file-metadata.txt" "test-file-metadata")
+  (put-file "test-file-metadata" "test-file-metadata.txt")
+  (let [reqj {:attr "test-attr"
+              :value "test-value"
+              :unit "test-unit"}
+        resp (postpathjson file-metadata reqj nuser (user-path "test-file-metadata/test-file-metadata.txt"))
+        body (json/read-json (:body resp))]
+    (is (= (:status resp) 200))
+    (is (= (:status body) "success"))
+    (is (= (:action body) "set-metadata"))
+    (is (= (:user body) nuser))
+    (is (= (:path body) (user-path "test-file-metadata/test-file-metadata.txt"))))
+  (delete-dir "test-file-metadata")
+  (io/delete-file "test-file-metadata.txt"))
+
+(deftest test-file-metadata-batch
+  (create-dir "test-file-metadata-batch")
+  (spit "lol.txt" "test-file-metadata-batch")
+  (put-file "test-file-metadata-batch" "lol.txt")
+  (add-avu (user-path "test-file-metadata-batch/lol.txt") "test-attr0" "test-val0" "test-unit0")
+  (add-avu (user-path "test-file-metadata-batch/lol.txt") "test-attr00" "test-val00" "test-unit00")
+  (let [reqj {:add [{:attr "test-attr1"
+                     :value "test-value1"
+                     :unit "test-unit1"}
+                    {:attr "test-attr2"
+                     :value "test-value2"
+                     :unit "test-unit2"}]
+              :delete ["test-attr0" "test-attr00"]}
+        resp (postpathjson file-metadata-batch reqj nuser (user-path "test-file-metadata-batch/lol.txt"))
+        body (json/read-json (:body resp))]
+    (is (= (:status resp) 200))
+    (is (= (:status body) "success"))
+    (is (= (:action body) "set-metadata-batch"))
+    (is (= (:user body) nuser))
+    (is (= (:path body) (user-path "test-file-metadata-batch/lol.txt"))))
+  (delete-dir "test-file-metadata-batch")
+  (io/delete-file "lol.txt"))
