@@ -24,7 +24,8 @@
   :aot [nibblonian.core]
   :main nibblonian.core
   :dev-dependencies [[lein-ring "0.5.4"]
-                     [clj-http "0.3.2"]]
+                     [clj-http "0.3.2"]
+                     [org.cloudhoist/stevedore "0.7.1"]]
   :extra-classpath-dirs ["local-conf"]
   :ring {:init nibblonian.controllers/init
          :handler nibblonian.core/app}
