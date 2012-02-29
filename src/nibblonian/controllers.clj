@@ -288,7 +288,7 @@
 
 (defn- check-adds
   [adds]
-  (into [] (map #(= (keys %) [:attr :value :unit]) adds)))
+  (into [] (map #(= (set (keys %)) (set [:attr :value :unit])) adds)))
 
 (defn- check-dels
   [dels]
