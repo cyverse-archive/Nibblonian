@@ -38,18 +38,48 @@
        :body (json/json-str ~body-map)
        :throw-exceptions false}))
 
+(defn create-dir [dirname]
+  (let [reqj {:path (user-path dirname)}]
+    (postjson create reqj nuser)))
+
+(defn delete-dir [dirname]
+  (let [reqj {:paths [(user-path dirname)]}]
+    (postjson delete-dirs reqj nuser)))
+
 (deftest test-create
-  (let [reqj {:path (user-path "test-create0")}
-        resp (postjson create reqj nuser)
+  (let [resp (create-dir "test-create0")
         body (json/read-json (:body resp))]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "create"))
     (is (= (:path body) (user-path "test-create0")))
     (is (= (get-in body [:permissions :read]) true))
-    (is (= (get-in body [:permissions :write]) true))))
+    (is (= (get-in body [:permissions :write]) true)))
+  
+  (delete-dir "test-create0"))
 
-(deftest test-delete
+(deftest test-move-dirs
+  (create-dir "test-move-dir0")
+  (create-dir "test-move-dir1")
+  (create-dir "test-move-dir2")
+  
+  (let [reqj {:sources [(user-path "test-move-dir1")
+                        (user-path "test-move-dir2")]
+              :dest (user-path "test-move-dir0")}
+        resp (postjson move-dirs reqj nuser)
+        body (json/read-json (:body resp))]
+    (is (= (:status resp) 200))
+    (is (= (:status body) "success"))
+    (is (= (:action body) "move-dirs"))
+    (is (= (:sources body) (:sources reqj)))
+    (is (= (:dest body) (:dest reqj))))
+  
+  (delete-dir "test-move-dir0/test-move-dir1")
+  (delete-dir "test-move-dir0/test-move-dir2"))
+
+(deftest test-delete-dirs
+  (create-dir "test-create0")
+  
   (let [reqj {:paths [(user-path "test-create0")]}
         resp (postjson delete-dirs reqj nuser)
         body (json/read-json (:body resp))]
