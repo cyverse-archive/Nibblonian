@@ -23,7 +23,8 @@
                  [swank-clojure "1.3.1"]]
   :aot [nibblonian.core]
   :main nibblonian.core
-  :dev-dependencies [[lein-ring "0.5.4"]]
+  :dev-dependencies [[lein-ring "0.5.4"]
+                     [clj-http "0.3.2"]]
   :extra-classpath-dirs ["local-conf"]
   :ring {:init nibblonian.controllers/init
          :handler nibblonian.core/app}
@@ -31,5 +32,8 @@
                  "http://projects.iplantcollaborative.org/archiva/repository/internal/"
                  
                  "renci.repository"
-                 "http://ci-dev.renci.org/nexus/content/repositories/snapshots/"})
+                 "http://ci-dev.renci.org/nexus/content/repositories/snapshots/"
+                 
+                 "sonatype"
+                 "http://oss.sonatype.org/content/repositories/releases"})
 
