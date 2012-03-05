@@ -6,7 +6,7 @@
 Summary: nibblonian
 Name: nibblonian
 Version: 0.1.0
-Release: 4
+Release: 5
 Epoch: 0
 BuildArchitectures: noarch
 Group: Applications
