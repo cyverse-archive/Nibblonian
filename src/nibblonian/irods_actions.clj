@@ -58,6 +58,10 @@
          (throw+ {:error_code ERR_NOT_A_USER
                   :user user}))
        
+       (when (not (exists? path))
+         (throw+ {:error_code ERR_DOES_NOT_EXIST
+                  :path path}))
+       
        (when (not (is-readable? user path))
          (throw+ {:error_code ERR_NOT_READABLE
                   :path path
@@ -66,24 +70,23 @@
        (let [data   (list-all (ft/rm-last-slash path))
              groups (group-by (fn [datum] (. datum isCollection)) data)
              files  (get groups false)
-             dirs   (get groups true)
-             retval (if include-files
-                      {:id path
-                       :label         (ft/basename path)
-                       :hasSubDirs    (> (count dirs) 0)
-                       :date-created  (created-date path)
-                       :date-modified (lastmod-date path)
-                       :permissions   (collection-perm-map user path)
-                       :files         (file-list user files filter-files) 
-                       :folders       (dir-list user dirs filter-files)}
-                      {:id path
-                       :date-created  (created-date path)
-                       :date-modified (lastmod-date path)
-                       :permissions   (collection-perm-map user path)
-                       :hasSubDirs    (> (count dirs) 0)
-                       :label         (ft/basename path)
-                       :folders       (dir-list user dirs filter-files)})]
-         retval))))
+             dirs   (get groups true)]
+         (if include-files
+           {:id path
+            :label         (ft/basename path)
+            :hasSubDirs    (> (count dirs) 0)
+            :date-created  (created-date path)
+            :date-modified (lastmod-date path)
+            :permissions   (collection-perm-map user path)
+            :files         (file-list user files filter-files) 
+            :folders       (dir-list user dirs filter-files)}
+           {:id path
+            :date-created  (created-date path)
+            :date-modified (lastmod-date path)
+            :permissions   (collection-perm-map user path)
+            :hasSubDirs    (> (count dirs) 0)
+            :label         (ft/basename path)
+            :folders       (dir-list user dirs filter-files)})))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
