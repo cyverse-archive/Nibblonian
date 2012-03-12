@@ -122,6 +122,9 @@
           (trap "delete-metadata" 
                  do-metadata-delete request))
   
+  (POST "/share" request
+        (trap "share" do-share request))
+  
   (route/not-found "Not Found!"))
 
 (defn site-handler [routes]

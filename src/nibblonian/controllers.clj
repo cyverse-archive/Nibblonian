@@ -286,6 +286,34 @@
     (log/info (str "Body: " (json/json-str body)))
     (irods-actions/metadata-set user path body)))
 
+(defn do-share
+  [request]
+  (log/debug "do-share")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (when-not (valid-body? request {:path string? :user string? :permissions map?})
+    (bad-body request {:path string? :user string? :permissions map?}))
+  
+  (let [user       (query-param request "user")
+        share-with (get-in request [:body :user])
+        fpath      (get-in request [:body :path])
+        perms      (get-in request [:body :permissions])]
+    (when-not (contains? perms :read)
+      (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+               :field "read"}))
+    
+    (when-not (contains? perms :write)
+      (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+               :field "write"}))
+    
+    (when-not (contains? perms :own)
+      (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+               :field "write"}))
+    
+    (irods-actions/share user share-with fpath perms)))
+
 (defn- check-adds
   [adds]
   (into [] (map #(= (set (keys %)) (set [:attr :value :unit])) adds)))

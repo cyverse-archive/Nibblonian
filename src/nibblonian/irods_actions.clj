@@ -7,7 +7,7 @@
             [clojure-commons.file-utils :as ft]
             [clojure.string :as string])
   (:use [clj-jargon.jargon]
-        [nibblonian.error-codes]
+        [clojure-commons.error-codes]
         [slingshot.slingshot :only [try+ throw+]]))
 
 (def IPCRESERVED "ipc-reserved-unit")
@@ -555,3 +555,42 @@
         :zone irods-zone
         :defaultStorageResource irods-dsr
         :key cart-key}})))
+
+
+
+(defn share
+  [user share-with fpath perms]
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
+    (when-not (user-exists? share-with)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user share-with}))
+    
+    (when-not (exists? fpath)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :path fpath}))
+    
+    (when-not (owns? user fpath)
+      (throw+ {:error_code ERR_NOT_OWNER
+               :path fpath
+               :user user}))
+    
+    (let [read-perm (:read perms)
+          write-perm (:write perms)
+          own-perm (:own perms)
+          base-dir (ft/path-join "/" @zone "home")]
+      (set-permissions share-with fpath read-perm write-perm own-perm)
+      
+      (loop [dir-path (ft/dirname fpath)]
+        (when-not (= dir-path base-dir)
+          (let [curr-perms (permissions share-with dir-path)
+                curr-write (:write curr-perms)
+                curr-own (:own curr-perms)]
+            (set-permissions share-with dir-path true curr-write curr-own)
+            (recur (ft/dirname dir-path))))))
+    {:user share-with
+     :path fpath
+     :permissions perms}))
