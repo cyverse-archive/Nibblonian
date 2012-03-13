@@ -75,7 +75,12 @@
   (when (super-user? user)
     (throw+ {:error_code ERR_NOT_AUTHORIZED
              :user user}))
-  (irods-actions/list-dir user directory include-files (filter-files)))
+  (let [irods-home (get @props "nibblonian.irods.home")
+        comm-dir   (community-data)
+        user-dir   (utils/path-join irods-home user)
+        public-dir (utils/path-join irods-home "public")
+        files-to-filter (conj (filter-files) comm-dir user-dir public-dir)]
+    (irods-actions/list-dir user directory include-files files-to-filter)))
 
 (defn do-homedir
   "Returns the home directory for the listed user."
@@ -107,6 +112,15 @@
   (let [cdata (dir-list user (community-data) inc-files)]
     (assoc cdata :label "Community Data")))
 
+(defn- gen-sharing-data
+  [user inc-files]
+  (let [irods-home (get @props "nibblonian.irods.home")
+        comm-dir   (community-data)
+        user-dir   (utils/path-join irods-home user)
+        public-dir (utils/path-join irods-home "public")
+        files-to-filter (conj (filter-files) comm-dir user-dir public-dir)]
+    (irods-actions/shared-root-listing user (get @props "nibblonian.irods.home") inc-files files-to-filter)))
+
 (defn do-directory
   "Performs a list-dirs command.
 
@@ -121,11 +135,12 @@
   ;;; request and the community listing should be included.
   (cond 
     (not (query-param? request "path")) 
-    (let [user      (query-param request "user")
-          inc-files (include-files? request)
-          comm-data (gen-comm-data user inc-files)
-          home-data (dir-list user (get-home-dir user) inc-files)]
-      {:roots [home-data comm-data]})
+    (let [user       (query-param request "user")
+          inc-files  (include-files? request)
+          comm-f  (future (gen-comm-data user inc-files))
+          share-f (future (gen-sharing-data user inc-files))
+          home-f  (future (dir-list user (get-home-dir user) inc-files))]
+      {:roots [@home-f @comm-f @share-f]})
     
     :else
     ;;; There's a path parameter, so simply list the directory.  
