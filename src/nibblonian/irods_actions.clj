@@ -24,34 +24,6 @@
                 #(ft/path-join dirpath %) 
                 (.getListInDir fs (file dirpath)))))))
 
-;(defn has-sub-dirs
-;  [user dirpath filter-files]
-;  (let [full-listing (directory-listing user dirpath filter-files)
-;        dirs-only (filter #(is-dir? %) full-listing)]
-;    (> (count dirs-only) 0)))
-
-;(defn file-map
-;  [user filepath]
-;  {:id filepath
-;   :label (ft/basename filepath)
-;   :permissions (dataobject-perm-map user filepath)
-;   ;:date-created (str (long (. (. dataobj getCreatedAt) getTime)))
-;   ;:date-modified (str (long (. (. dataobj getUpdatedAt) getTime)))
-;   ;:file-size (str (. dataobj getDataSize))
-;   }
-;  ;(let [dataobj (data-object filepath)])
-;  )
-
-;(defn dir-map
-;  [user dirpath filter-files]
-;  (let [coll (collection dirpath)]
-;    {:id            dirpath
-;     :label         (ft/basename dirpath)
-;     :permissions   (collection-perm-map user dirpath)
-;     :hasSubDirs    (has-sub-dirs user dirpath filter-files)
-;     :date-created  (str (long (. (. coll getCreatedAt) getTime)))
-;     :date-modified (str (long (. (. coll getModifiedAt) getTime)))}))
-
 (defn list-files
   [user list-entries dirpath filter-files]
   (into []
