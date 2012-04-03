@@ -10,10 +10,12 @@
             Ticket]
            [org.irods.jargon.ticket.packinstr TicketCreateModeEnum]))
 
+;;;Ticket types.
 (def ticket-read TicketCreateModeEnum/TICKET_CREATE_READ)
 (def ticket-write TicketCreateModeEnum/TICKET_CREATE_WRITE)
 (def ticket-unknown TicketCreateModeEnum/TICKET_CREATE_UNKNOWN)
 
+;;;Object types that a ticket can work on.
 (def collection-type
   org.irods.jargon.ticket.Ticket$TicketObjectType/COLLECTION)
 
@@ -106,51 +108,57 @@
     (.setTicketString ticket tckt-string)))
 
 (defn uses-count
+  "Gets and sets the uses count for a ticket."
   ([ticket]
     (.getUsesCount ticket))
   ([ticket new-count]
     (.setUsesCount ticket new-count)))
 
 (defn uses-limit
+  "Gets and sets the uses limit for a ticket."
   ([ticket]
     (.getUsesLimit ticket))
   ([ticket new-limit]
     (.setUsesLimit ticket new-limit)))
 
 (defn write-byte-count
+  "Gets and sets the write byte count for a ticket."
   ([ticket]
     (.getWriteByteCount ticket))
   ([ticket new-write-byte-count]
     (.setWriteByteCount ticket new-write-byte-count)))
 
 (defn write-byte-limit
+  "Gets and sets the write byte limit for a ticket."
   ([ticket]
     (.getWriteByteLimit ticket))
   ([ticket new-write-byte-limit]
     (.setWriteByteLimit ticket new-write-byte-limit)))
 
 (defn write-file-count
+  "Gets and set the write file count for a ticket."
   ([ticket]
     (.getWriteFileCount ticket))
   ([ticket new-write-file-count]
     (.setWriteFileCount ticket new-write-file-count)))
 
 (defn write-file-limit
+  "Gets and sets the write file limit for a ticket."
   ([ticket]
     (.getWriteFileLimit ticket))
   ([ticket new-write-file-limit]
     (.setWriteFileLimit ticket new-write-file-limit)))
 
 (defn ticket-type
+  "Gets and sets the ticket type for a ticket."
   ([ticket]
     (.getType ticket))
   ([ticket new-ticket-type]
     (.setType ticket new-ticket-type)))
 
-(defn valid-keys
-  [k]
-  (case k
-    "expire-time"      expire-time
+(def attr-fns
+  "Maps attribute keys to their getter-setter function."
+  {"expire-time"       expire-time
     "abs-path"         abs-path
     "object-type"      object-type
     "owner-name"       owner-name
@@ -163,34 +171,42 @@
     "write-byte-count" write-byte-count
     "write-byte-limit" write-byte-limit
     "write-file-count" write-file-count
-    "write-file-limit" write-file-limit
+    "write-file-limit" write-file-limit})
+
+(defn valid-key?
+  "Makes sure that an attribute name is actually an attribute
+   of a ticket."
+  [k]
+  (contains? (set (keys attr-fns)) k))
+
+(defn set-get
+  "Returns the set-get function for an ticket attribute."
+  [k]
+  (if (valid-key? k)
+    (get attr-fns k)
     (throw {:error_code ERR_UNCHECKED_EXCEPTION :key k})))
 
 (defn set-ticket-attrs
   "Sets a tickets attributes based on the map that's passed in. The
-   keys in the map are transformed into function calls as follows:
-   * Key names are split on dashes.
-   * Each part of the name is capitalized.
-   * The parts are rejoined together and prepended with 'set'.
-   For example: 'write-byte-count' becomes 'setWriteByteCount'.
-   This will hopefully allow us to write more idiomatic Clojure when
-   setting ticket attrs."
+   keys in the map should correspond to the ticket attribute and the
+   value should be the new value for the attribute."
   [ticket attrs]
+  (when-not (every? valid-key? attrs)
+    (throw {:error_code ERR_UNCHECKED_EXCEPTION :attrs attrs}))
+  
   (doseq [fn-key (keys attrs)]
-    (let [set-fn  (valid-keys fn-key)
+    (let [set-fn  (set-get fn-key)
           set-val (get attrs fn-key)]
       (set-fn ticket set-val))))
 
 (defn get-ticket-attrs
-  "Gets the listed attributes from a ticket. Returns a map of the 
-   attributes/values. The keys in the map are transformed into
-   function calls as follows:
-   * Key names are split on dashes.
-   * Each part of the name is capitalized.
-   * the aprts are rejoined together and prepended with 'get'.
-   For example, 'write-byte-count' becomes 'getWriteByteCount'."
+  "Gets the current value for a sequence of ticket attributes. Returns
+   a map of ticket-attribute ticket-value pairs."
   [ticket attrs]
+  (when-not (every? valid-key? attrs)
+    (throw {:error_code ERR_UNCHECKED_EXCEPTION :attrs attrs}))
+  
   (merge {} 
     (for [fn-key attrs]
-      (let [get-fn (valid-keys fn-key)]
+      (let [get-fn (set-get fn-key)]
         {fn-key (get-fn ticket)}))))
