@@ -50,6 +50,42 @@ A list of the known error codes is maintained here: [error codes](https://github
 
 In other cases Nibblonian should return a stacktrace. Work is planned to convert Nibblonian's error handling over to [slingshot](https://github.com/scgilardi/slingshot) (I didn't know about slingshot when I originally wrote Nibblonian).
 
+File/Directory Sharing
+----------------------
+Shares a file or directory with another user. The user being shared with is given read-only access to all of the parent directories as well. This allows the user to drill down to the shared file/directory from the "Shared" section of the data management window.
+
+Action: "share"
+
+Error codes: ERR_NOT_A_USER, ERR_BAD_OR_MISSING_FIELD, ERR_DOES_NOT_EXIST, ERR_NOT_OWNER
+
+Request body JSON:
+
+    {
+        "path" : "/path/to/shared/file",
+        "user" : "shared-with-user",
+        "permissions" : {
+            "read" : true,
+            "write" : true,
+            "own" : false
+        }
+    }
+
+Curl command:
+
+curl -H "Content-Type:application/json" -d '{"path" : "/path/to/shared/file", "user" : "shared-with-user", "permissions" : {"read" : true, "write" : true, "own" : false}}' http://nibblonian.yourhostname.org?user=fileowner
+
+The response body:
+
+    {
+        "action" : "share",
+        "status" : "success",
+        "user" : "user shared with",
+        "path" : "the path that was shared",
+        "permissions" : "the new permissions on the path"
+    }
+
+
+
 File Upload
 -----------
 Uploads are now handled by iDrop Lite. Nibblonian is only responsible for generating a temporary password for a user and returning connection information.
