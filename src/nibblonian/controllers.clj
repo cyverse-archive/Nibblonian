@@ -5,6 +5,7 @@
         [slingshot.slingshot :only [try+ throw+]])
   (:require [clojure-commons.props :as prps]
             [nibblonian.irods-actions :as irods-actions]
+            [nibblonian.tickets :as tickets]
             [ring.util.response :as rsp-utils]
             [ring.util.codec :as cdc]
             [clojure-commons.file-utils :as utils]
@@ -301,6 +302,12 @@
     (log/info (str "Body: " (json/json-str body)))
     (irods-actions/metadata-set user path body)))
 
+(defn- fix-username
+  [username]
+  (if (re-seq #"@" username)
+    (subs username 0 (.indexOf username "@"))
+    username))
+
 (defn do-share
   [request]
   (log/debug "do-share")
@@ -311,7 +318,7 @@
   (when-not (valid-body? request {:path string? :user string? :permissions map?})
     (bad-body request {:path string? :user string? :permissions map?}))
   
-  (let [user       (query-param request "user")
+  (let [user       (fix-username (query-param request "user"))
         share-with (get-in request [:body :user])
         fpath      (get-in request [:body :path])
         perms      (get-in request [:body :permissions])]
@@ -515,3 +522,94 @@
         {:status 200 :body (irods-actions/download-file user path)}
         "Content-Disposition"
         (str "attachment; filename=\"" (utils/basename path) "\"")))))
+
+(defn do-ticket-create
+  "Handles creating a ticket.
+
+   Request Parameters:
+     user - Query string field containing the username of the user creating
+            the ticket.
+     path - Body JSON field containing the path to the file the
+            ticket is being created for.
+     ticket-string - Body JSON field containing the string for the ticket."
+  [request]
+  (log/debug "do-ticket-create")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (when-not (valid-body? request {:type string?})
+    (bad-body request {:type string?}))
+  
+  (when-not (valid-body? request {:abs-path string?})
+    (bad-body request {:abs-path string?}))
+  
+  (when-not (valid-body? request {:ticket-string string?})
+    (bad-body request {:ticket-string? string?}))
+  
+  (let [user       (query-param request "user")
+        owner-zone (get @props "nibblonian.irods.zone")
+        attrs      (:body request)]
+    (tickets/create-ticket user owner-zone attrs)))
+
+(defn do-ticket-read
+  "Handles reading the attributes of a ticket.
+
+   Request Parameters:
+     user - Query string field containing the username of the suer creating 
+            the ticket.
+     ticket-string - Query string field containing the string for the ticket."
+  [request]
+  (log/debug "do-ticket-read")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (when-not (query-param? request "ticket-string")
+    (bad-query "ticket-string"))
+  
+  (let [user (query-param request "user")
+        tckt (query-param request "ticket-string")]
+    (tickets/read-ticket user tckt)))
+
+(defn do-ticket-update
+  "Handles updating the attributes of a ticket.
+
+  Request Parameters:
+    user - Query string field containing the user of the user changing
+           the ticket's attributes.
+    ticket-string - Query string field containing the string identifier
+                    for the ticket."
+  [request]
+  (log/debug "do-ticket-update")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (when-not (valid-body? request {:ticket-string string?})
+    (bad-body request {:ticket-string string?}))
+  
+  (let [user (query-param request "user")]
+    (tickets/update-ticket user (:body request))))
+
+(defn do-ticket-delete
+  "Controller for deleting a ticket.
+
+   Request Parameters:
+     user - Query string field containing the username of the user
+            attempting to delete the ticket. Must be the owner of
+            the file the ticket is associated with.
+     ticket-string - Query string field containing the identifier
+                     for the ticket."
+  [request]
+  (log/debug "do-ticket-delete")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (when-not (query-param? request "ticket-string")
+    (bad-query "ticket-string"))
+  
+  (let [user          (query-param request "user")
+        ticket-string (query-param request "ticket-string")]
+    (tickets/delete-ticket user ticket-string)))
