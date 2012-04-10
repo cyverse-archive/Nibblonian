@@ -339,7 +339,9 @@
                :path path 
                :user user}))
     
-    (.toString (preview-buffer path size))))
+    (if (= (file-size path) 0)
+      ""
+      (.toString (preview-buffer path size)))))
 
 (defn user-home-dir
   [staging-dir user set-owner?]
@@ -551,7 +553,9 @@
       (throw+ {:error_code ERR_NOT_WRITEABLE 
                :path file-path}))
     
-    (input-stream file-path)))
+    (if (= (file-size file-path) 0)
+      ""
+      (input-stream file-path))))
 
 (defn download
   [user filepaths]
