@@ -111,7 +111,7 @@ Directory Creation
 ------------------
 Action: "create"
 
-Error codes: ERR_NOT_WRITEABLE, ERR_EXISTS
+Error codes: ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_NOT_A_USER
 
 Curl command:
 
@@ -225,7 +225,7 @@ Directory Move
 --------------
 Action: "move-dirs"
 
-Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS
+Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_NOT_A_USER
 
 The ERR_DOES_NOT_EXIST error code pops up when the destination directory does not exist and when one of the "sources" directories does not exist. The ERR_EXISTS code pops up when one of the new destination directories already exists.
 
@@ -249,7 +249,7 @@ File Move
 ---------
 Action: "move-files"
 
-Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_A_FOLDER, ERR_NOT_WRITEABLE, ERR_EXISTS
+Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_A_FOLDER, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_NOT_A_USER
 
 The ERR_DOES_NOT_EXIST error code pops up when the destination directory does not exist and when one of the "sources" files does not exist. The ERR_EXISTS code pops up when one of the new destination files already exists.
 
@@ -273,7 +273,7 @@ Directory Rename
 ----------------
 Action: "rename-directory"
 
-Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_INCOMPLETE_RENAME
+Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_INCOMPLETE_RENAME, ERR_NOT_A_USER
 
 Curl command:
 
@@ -293,7 +293,7 @@ File Rename
 -----------
 Action: "rename-file"
 
-Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_INCOMPLETE_RENAME
+Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_INCOMPLETE_RENAME, ERR_NOT_A_USER
 
 Curl command:
 
@@ -313,7 +313,7 @@ Directory Deletion
 ------------------
 Action: "delete-dirs"
 
-Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
+Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
 Curl command:
 
@@ -332,7 +332,7 @@ File Deletion
 -------------
 Action: "delete-files"
 
-Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
+Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
 Curl command:
 
@@ -351,7 +351,7 @@ File Preview
 ------------
 Action: "preview"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE, ERR_NOT_A_FILE
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE, ERR_NOT_A_FILE, ERR_NOT_A_USER
 
 
 Curl command:
@@ -370,7 +370,7 @@ File manifest
 -------------
 Action: "manifest"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_A_FILE, ERR_NOT_READABLE
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_A_FILE, ERR_NOT_READABLE, ERR_NOT_A_USER
 
 Curl command:
 
@@ -397,9 +397,9 @@ File/Directory existence
 ------------------------
 The /exists endpoint allows the caller to check for the existence of a set of files. The following is an example call to the exists endpoint:
 
-Action(s): N/A
+Action(s): exists
 
-Error codes: N/A
+Error codes: ERR_NOT_A_USER
 
 Curl command:
 
@@ -429,7 +429,7 @@ Note the single-quotes around the request URL in the curl command. To associate 
 
 Action: "set-metadata"
 
-Error codes: ERR_INVALID_JSON, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
+Error codes: ERR_INVALID_JSON, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
 Curl command:
 
@@ -449,7 +449,7 @@ Setting File and Directory Metadata Batch
 -----------------------------------------
 Action: "set-metadata-batch"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
 The endpoints for this command are /directory/metadata-batch and /file/metadata-batch. It accepts a POST request containing JSON in the following format:
 
@@ -492,7 +492,7 @@ Getting File and Directory Metadata
 ------------------------------------
 Action: "get-metadata"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE, ERR_NOT_A_USER
 
 Note the single-quotes around the request URL in the curl command. Also note that the metadata returned in the "metadata" field is in a list, since this command returns all of the metadata associated with a file or directory.
 
@@ -521,7 +521,7 @@ Deleting File and Directory Metadata
 ------------------------------------
 Action: "delete-metadata"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
 As before, note the single-quotes around the request URLs in the curl command. To get the directory version of the command, replace the path portion of the URL with '/directory/metadata' and make sure that the path indicated in the query portion of the URL points to a directory.
 
@@ -547,7 +547,7 @@ Something to note is that we're not checking to make sure that the strings in th
 
 Action: "set-tree-urls"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
 Curl command:
 
@@ -568,7 +568,7 @@ Getting a Tree URL for a File
 
 Action: "get-tree-urls"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
+Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
 Curl command:
 
