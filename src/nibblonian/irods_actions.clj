@@ -646,6 +646,42 @@
      :path fpath
      :permissions perms}))
 
+(defn contains-accessible-obj?
+  [user dpath]
+  (let [child-paths (list-paths dpath)]
+    (or (is-readable? user dpath)
+        (some #(is-readable? user %1) child-paths))))
+
+(defn unshare
+  "Allows 'user' to unshare file 'fpath' with user 'unshare-with'."
+  [user unshare-with fpath]
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+
+    (when-not (user-exists? share-with)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user share-with}))
+
+    (when-not (exists? fpath)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :path fpath}))
+
+    (when-not (owns? user fpath)
+      (throw+ {:error_code ERR_NOT_OWNER
+               :path fpath
+               :user user}))
+
+    (let [base-dir (ft/path-join "/" @zone)]
+      (remove-permissions share-with fpath)
+      
+      (loop [dir-path (ft/dirname fpath)]
+        (when-not (or (= dir-path base-dir)
+                      (contains-accessible-obj? share-with dir-path))
+          (remove-permissions share-with dir-path)
+          (recur (ft/dirname dir-path)))))))
+
 (defn shared-root-listing
   [user root-dir inc-files filter-files]
   
