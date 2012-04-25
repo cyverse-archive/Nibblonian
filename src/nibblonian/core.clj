@@ -122,20 +122,11 @@
           (trap "delete-metadata" 
                  do-metadata-delete request))
   
-  (PUT "/ticket" request
-       (trap "create-ticket" do-ticket-create request))
-  
-  (GET "/ticket" request
-       (trap "read-ticket" do-ticket-read request))
-  
-  (POST "/ticket" request
-        (trap "update-ticket" do-ticket-update request))
-  
-  (DELETE "/ticket" request
-          (trap "delete-ticket" do-ticket-delete request))
-  
   (POST "/share" request
         (trap "share" do-share request))
+
+  (POST "/unshare" request
+        (trap "unshare" do-unshare request))
   
   (route/not-found "Not Found!"))
 
