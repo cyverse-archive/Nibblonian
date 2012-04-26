@@ -318,7 +318,7 @@
     (bad-body request {:path string? :user string? :permissions map?}))
   
   (let [user       (fix-username (query-param request "user"))
-        share-with (get-in request [:body :user])
+        share-with (fix-username (get-in request [:body :user]))
         fpath      (get-in request [:body :path])
         perms      (get-in request [:body :permissions])]
     (when-not (contains? perms :read)
@@ -346,7 +346,7 @@
     (bad-body request {:path string? :user string?}))
 
   (let [user       (fix-username (query-param request "user"))
-        share-with (get-in request [:body :user])
+        share-with (fix-username (get-in request [:body :user]))
         fpath      (get-in request [:body :path])]
     (irods-actions/unshare user share-with fpath)))
 
