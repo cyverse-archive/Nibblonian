@@ -650,6 +650,14 @@
   [user dpath]
   (some #(is-readable? user %1) (list-paths dpath)))
 
+(defn contains-subdir?
+  [dpath]
+  (some is-dir? (list-paths dpath)))
+
+(defn subdirs
+  [dpath]
+  (filter is-dir? (list-paths dpath)))
+
 (defn unshare
   "Allows 'user' to unshare file 'fpath' with user 'unshare-with'."
   [user unshare-with fpath]
@@ -671,14 +679,17 @@
                :path fpath
                :user user}))
 
-    (let [base-dir (ft/path-join "/" @zone)]
+    (let [base-dir    (ft/path-join "/" @zone)
+          parent-path (ft/dirname fpath)]
       (remove-permissions unshare-with fpath)
       
-      (loop [dir-path (ft/dirname fpath)]
-        (when-not (or (= dir-path base-dir)
-                      (contains-accessible-obj? unshare-with dir-path))
-          (remove-permissions unshare-with dir-path)
-          (recur (ft/dirname dir-path))))))
+      (when-not (and (contains-subdir? parent-path)
+                     (some #(is-readable? user %1) (subdirs parent-path)))
+        (loop [dir-path parent-path]
+          (when-not (or (= dir-path base-dir)
+                        (contains-accessible-obj? unshare-with dir-path))
+            (remove-permissions unshare-with dir-path)
+            (recur (ft/dirname dir-path)))))))
   {:user unshare-with
    :path fpath})
 
