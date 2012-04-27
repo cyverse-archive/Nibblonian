@@ -40,6 +40,7 @@
               {:id            abspath
                :label         label
                :permissions   perms
+               :user-permissions (list-user-perms abspath)
                :date-created  created
                :date-modified lastmod
                :file-size     size}) 
@@ -73,6 +74,7 @@
                {:id            abspath
                 :label         label
                 :permissions   perms
+                :user-permissions (list-user-perms abspath)
                 :date-created  created
                 :date-modified lastmod
                 :hasSubDirs    (has-sub-dirs user abspath)
@@ -127,12 +129,14 @@
             :date-created  (created-date path)
             :date-modified (lastmod-date path)
             :permissions   (collection-perm-map user path)
+            :user-permissions (list-user-perms path)
             :files         files
             :folders       dirs}
            {:id path
             :date-created  (created-date path)
             :date-modified (lastmod-date path)
             :permissions   (collection-perm-map user path)
+            :user-permissions (list-user-perms path)
             :hasSubDirs    (> (count dirs) 0)
             :label         (ft/basename path)
             :folders       dirs})))))
