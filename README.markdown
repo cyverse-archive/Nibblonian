@@ -203,76 +203,104 @@ Response for the first curl command:
        "path":{
           "id":"\/tempZone\/home\/rods",
           "label":"rods",
+          "user-permissions" : [], 
           "files":[
              {
                 "id":"\/tempZone\/home\/rods\/project2.clj",
-                "label":"project2.clj"
+                "label":"project2.clj",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/results2.txt",
-                "label":"results2.txt"
+                "label":"results2.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploads2222.txt",
-                "label":"uploads2222.txt"
+                "label":"uploads2222.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploads333.txt",
-                "label":"uploads333.txt"
+                "label":"uploads333.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploads5555.txt",
-                "label":"uploads5555.txt"
+                "label":"uploads5555.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploadsss.txt",
-                "label":"uploadsss.txt"
+                "label":"uploadsss.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploadtest",
-                "label":"uploadtest"
+                "label":"uploadtest",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploadtest5000",
-                "label":"uploadtest5000"
+                "label":"uploadtest5000",
+                "user-permissions" : []
              }
           ],
           "folders":[
              {
                 "id":"\/tempZone\/home\/rods\/bargle",
-                "label":"bargle"
+                "label":"bargle",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/big-test",
-                "label":"big-test"
+                "label":"big-test",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/fakedir2",
-                "label":"fakedir2"
+                "label":"fakedir2",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/foo1",
-                "label":"foo1"
+                "label":"foo1",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/foobarbaz",
-                "label":"foobarbaz"
+                "label":"foobarbaz",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/src",
-                "label":"src"
+                "label":"src",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/target",
-                "label":"target"
+                "label":"target",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/test1",
-                "label":"test1"
+                "label":"test1",
+                "user-permissions" : []
              }
           ]
        }
     }
+
+The user permissions fields are lists of maps in the following format:
+
+    [{
+         "user" : "username",
+         "permissions" : {
+             "read" : true,
+             "write" : true,
+             "own" : true
+         }      
+    }]
 
 
 Directory Move
