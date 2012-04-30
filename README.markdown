@@ -61,8 +61,8 @@ Error codes: ERR_NOT_A_USER, ERR_BAD_OR_MISSING_FIELD, ERR_DOES_NOT_EXIST, ERR_N
 Request body JSON:
 
     {
-        "path" : "/path/to/shared/file",
-        "user" : "shared-with-user",
+        "paths" : ["/path/to/shared/file"],
+        "users" : ["shared-with-user"],
         "permissions" : {
             "read" : true,
             "write" : true,
@@ -79,9 +79,13 @@ The response body:
     {
         "action" : "share",
         "status" : "success",
-        "user" : "user shared with",
-        "path" : "the path that was shared",
-        "permissions" : "the new permissions on the path"
+        "users" : ["users shared with"],
+        "paths" : ["the paths that were shared"],
+        "permissions" : {
+            "read" : true,
+            "write" : true,
+            "own" : false
+        }
     }
 
 File/Directory Unsharing
@@ -95,8 +99,8 @@ Error codes: ERR_NOT_A_USER, ERR_BAD_OR_MISSING_FIELD, ERR_DOES_NOT_EXIST, ERR_N
 Request body JSON
 
     {
-        "path" : "/path/to/shared/file",
-        "user" : "shared-with-user"
+        "paths" : ["/path/to/shared/file"],
+        "users" : ["shared-with-user"]
     }
 
 Curl command:
