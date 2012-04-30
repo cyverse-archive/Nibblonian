@@ -24,6 +24,13 @@
                 #(ft/path-join dirpath %) 
                 (.getListInDir fs (file dirpath)))))))
 
+(defn list-perms
+  [user abspath]
+  (filter
+   #(not (or (= (:user %1) user)
+             (= (:user %1) @username)))
+   (list-user-perms abspath)))
+
 (defn list-files
   [user list-entries dirpath filter-files]
   (into []
@@ -40,7 +47,7 @@
               {:id            abspath
                :label         label
                :permissions   perms
-               :user-permissions (list-user-perms abspath)
+               :user-permissions (list-perms user abspath)
                :date-created  created
                :date-modified lastmod
                :file-size     size}) 
@@ -74,7 +81,7 @@
                {:id            abspath
                 :label         label
                 :permissions   perms
-                :user-permissions (list-user-perms abspath)
+                :user-permissions (list-perms user abspath)
                 :date-created  created
                 :date-modified lastmod
                 :hasSubDirs    (has-sub-dirs user abspath)
@@ -129,14 +136,14 @@
             :date-created  (created-date path)
             :date-modified (lastmod-date path)
             :permissions   (collection-perm-map user path)
-            :user-permissions (list-user-perms path)
+            :user-permissions (list-perms user path)
             :files         files
             :folders       dirs}
            {:id path
             :date-created  (created-date path)
             :date-modified (lastmod-date path)
             :permissions   (collection-perm-map user path)
-            :user-permissions (list-user-perms path)
+            :user-permissions (list-perms user path)
             :hasSubDirs    (> (count dirs) 0)
             :label         (ft/basename path)
             :folders       dirs})))))
