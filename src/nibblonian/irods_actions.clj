@@ -47,7 +47,6 @@
               {:id            abspath
                :label         label
                :permissions   perms
-               :user-permissions (list-perms user abspath)
                :date-created  created
                :date-modified lastmod
                :file-size     size}) 
@@ -81,7 +80,6 @@
                {:id            abspath
                 :label         label
                 :permissions   perms
-                :user-permissions (list-perms user abspath)
                 :date-created  created
                 :date-modified lastmod
                 :hasSubDirs    (has-sub-dirs user abspath)
@@ -136,14 +134,12 @@
             :date-created  (created-date path)
             :date-modified (lastmod-date path)
             :permissions   (collection-perm-map user path)
-            :user-permissions (list-perms user path)
             :files         files
             :folders       dirs}
            {:id path
             :date-created  (created-date path)
             :date-modified (lastmod-date path)
             :permissions   (collection-perm-map user path)
-            :user-permissions (list-perms user path)
             :hasSubDirs    (> (count dirs) 0)
             :label         (ft/basename path)
             :folders       dirs})))))
@@ -621,40 +617,52 @@
         :key cart-key}})))
 
 (defn share
-  [user share-with fpath perms]
+  [user share-withs fpaths perms]
   (with-jargon
     (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when-not (user-exists? share-with)
+    (when-not (every? user-exists? share-withs)
       (throw+ {:error_code ERR_NOT_A_USER
-               :user share-with}))
+               :users (into []
+                           (filter
+                            #(not (user-exists? %1))
+                            share-withs))}))
     
-    (when-not (exists? fpath)
+    (when-not (every? exists? fpaths)
       (throw+ {:error_code ERR_DOES_NOT_EXIST
-               :path fpath}))
+               :paths (into []
+                           (filter
+                            #(not (exists? %1))
+                            fpaths))}))
     
-    (when-not (owns? user fpath)
+    (when-not (every? (partial owns? user) fpaths)
       (throw+ {:error_code ERR_NOT_OWNER
-               :path fpath
+               :paths (into []
+                            (filter
+                             (partial owns? user)
+                             fpaths))
                :user user}))
+
+    (doseq [share-with share-withs]
+      (doseq [fpath fpaths]
+        (let [read-perm (:read perms)
+              write-perm (:write perms)
+              own-perm (:own perms)
+              base-dir (ft/path-join "/" @zone)]
+          (set-permissions share-with fpath read-perm write-perm own-perm true)
+          
+          (loop [dir-path (ft/dirname fpath)]
+            (when-not (= dir-path base-dir)
+              (let [curr-perms (permissions share-with dir-path)
+                    curr-write (:write curr-perms)
+                    curr-own (:own curr-perms)]
+                (set-permissions share-with dir-path true curr-write curr-own)
+                (recur (ft/dirname dir-path))))))))
     
-    (let [read-perm (:read perms)
-          write-perm (:write perms)
-          own-perm (:own perms)
-          base-dir (ft/path-join "/" @zone)]
-      (set-permissions share-with fpath read-perm write-perm own-perm)
-      
-      (loop [dir-path (ft/dirname fpath)]
-        (when-not (= dir-path base-dir)
-          (let [curr-perms (permissions share-with dir-path)
-                curr-write (:write curr-perms)
-                curr-own (:own curr-perms)]
-            (set-permissions share-with dir-path true curr-write curr-own)
-            (recur (ft/dirname dir-path))))))
-    {:user share-with
-     :path fpath
+    {:user share-withs
+     :path fpaths
      :permissions perms}))
 
 (defn contains-accessible-obj?
@@ -671,38 +679,49 @@
 
 (defn unshare
   "Allows 'user' to unshare file 'fpath' with user 'unshare-with'."
-  [user unshare-with fpath]
+  [user unshare-withs fpaths]
   (with-jargon
     (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
 
-    (when-not (user-exists? unshare-with)
+    (when-not (every? user-exists? unshare-withs)
       (throw+ {:error_code ERR_NOT_A_USER
-               :user unshare-with}))
+               :users (into []
+                            (filter
+                             #(not (user-exists? %1))
+                             unshare-withs))}))
 
-    (when-not (exists? fpath)
+    (when-not (every? exists? fpaths)
       (throw+ {:error_code ERR_DOES_NOT_EXIST
-               :path fpath}))
+               :paths (into []
+                            (filter
+                             #(not (exists? %1))
+                             fpaths))}))
 
-    (when-not (owns? user fpath)
+    (when-not (every? (partial owns? user) fpaths)
       (throw+ {:error_code ERR_NOT_OWNER
-               :path fpath
+               :path (into []
+                           (filter
+                            #(not (partial owns? user)))
+                           fpaths)
                :user user}))
 
-    (let [base-dir    (ft/path-join "/" @zone)
-          parent-path (ft/dirname fpath)]
-      (remove-permissions unshare-with fpath)
-      
-      (when-not (and (contains-subdir? parent-path)
-                     (some #(is-readable? user %1) (subdirs parent-path)))
-        (loop [dir-path parent-path]
-          (when-not (or (= dir-path base-dir)
-                        (contains-accessible-obj? unshare-with dir-path))
-            (remove-permissions unshare-with dir-path)
-            (recur (ft/dirname dir-path)))))))
-  {:user unshare-with
-   :path fpath})
+    (doseq [unshare-with unshare-withs]
+      (doseq [fpath fpaths]
+        (let [base-dir    (ft/path-join "/" @zone)
+              parent-path (ft/dirname fpath)]
+          (remove-permissions unshare-with fpath)
+          
+          (when-not (and (contains-subdir? parent-path)
+                         (some #(is-readable? user %1) (subdirs parent-path)))
+            (loop [dir-path parent-path]
+              (when-not (or (= dir-path base-dir)
+                            (contains-accessible-obj? unshare-with dir-path))
+                (remove-permissions unshare-with dir-path)
+                (recur (ft/dirname dir-path)))))))))
+  {:user unshare-withs
+   :path fpaths})
 
 (defn shared-root-listing
   [user root-dir inc-files filter-files]

@@ -314,13 +314,13 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when-not (valid-body? request {:path string? :user string? :permissions map?})
-    (bad-body request {:path string? :user string? :permissions map?}))
+  (when-not (valid-body? request {:paths sequential? :users sequential? :permissions map?})
+    (bad-body request {:paths sequential? :users sequential? :permissions map?}))
   
-  (let [user       (fix-username (query-param request "user"))
-        share-with (fix-username (get-in request [:body :user]))
-        fpath      (get-in request [:body :path])
-        perms      (get-in request [:body :permissions])]
+  (let [user        (fix-username (query-param request "user"))
+        share-withs (map fix-username (get-in request [:body :users]))
+        fpaths      (get-in request [:body :paths])
+        perms       (get-in request [:body :permissions])]
     (when-not (contains? perms :read)
       (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
                :field "read"}))
@@ -333,7 +333,7 @@
       (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
                :field "write"}))
     
-    (irods-actions/share user share-with fpath perms)))
+    (irods-actions/share user share-withs fpaths perms)))
 
 (defn do-unshare
   [request]
@@ -342,13 +342,13 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
 
-  (when-not (valid-body? request {:path string? :user string?})
-    (bad-body request {:path string? :user string?}))
+  (when-not (valid-body? request {:paths sequential? :users sequential?})
+    (bad-body request {:paths sequential? :users sequential?}))
 
-  (let [user       (fix-username (query-param request "user"))
-        share-with (fix-username (get-in request [:body :user]))
-        fpath      (get-in request [:body :path])]
-    (irods-actions/unshare user share-with fpath)))
+  (let [user        (fix-username (query-param request "user"))
+        share-withs (map fix-username (get-in request [:body :users]))
+        fpaths      (get-in request [:body :paths])]
+    (irods-actions/unshare user share-withs fpaths)))
 
 (defn- check-adds
   [adds]
@@ -537,3 +537,23 @@
         "Content-Disposition"
         (str "attachment; filename=\"" (utils/basename path) "\"")))))
 
+(defn do-user-permissions
+  "Handles returning the list of user permissions for a file
+   or directory.
+
+   Request parameters:
+      user - Query string field containing the username of the user
+             making the request.
+      path - Query string field containin the path to the file."
+  [request]
+  (log/debug "do-user-permissions")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (query-param? request "path")
+    (bad-query "path"))
+
+  (let [user (query-param request "user")
+        path (query-param request "path")]
+    {:user-permissions (irods-actions/list-perms user path)}))
