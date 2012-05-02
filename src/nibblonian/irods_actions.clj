@@ -748,5 +748,5 @@
     (when-not (is-readable? user root-dir)
       (set-permissions user (ft/rm-last-slash root-dir) true false false))
     
-    (let [sharing-data (list-dir user root-dir inc-files filter-files)]
+    (let [sharing-data (list-dir user (ft/rm-last-slash root-dir) inc-files filter-files)]
       (assoc sharing-data :label "Shared"))))
