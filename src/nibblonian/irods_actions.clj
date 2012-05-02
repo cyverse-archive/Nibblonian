@@ -2,6 +2,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as ds]
             [nibblonian.ssl :as ssl]
+            [clojure.data.codec.base64 :as b64]
             [ring.util.codec :as cdc]
             [clojure.data.json :as json]
             [clojure-commons.file-utils :as ft]
@@ -370,6 +371,19 @@
       (set-metadata new-path new-attr new-val new-unit)
       {:path new-path :user user})))
 
+(defn encode-str
+  [str-to-encode]
+  (String. (b64/encode (.getBytes str-to-encode))))
+
+(defn workaround-delete
+  "Gnarly workaround for a bug (I think) in Jargon. If a value
+   in an AVU is formatted a certain way, it can't be deleted.
+   We're base64 encoding the value before deletion to ensure
+   that the deletion will work."
+  [path attr]
+  (let [{:keys [attr value unit]} (first (get-attribute path attr))]
+    (set-metadata path attr (encode-str value) unit)))
+
 (defn metadata-batch-set
   [user path adds-dels]
   (with-jargon
@@ -388,7 +402,8 @@
           new-path (ft/rm-last-slash path)]
       
       (doseq [del dels]
-        (if (attribute? new-path del)
+        (when (attribute? new-path del)
+          (workaround-delete new-path del)
           (delete-metadata new-path del)))
       
       (doseq [avu adds]
@@ -432,6 +447,7 @@
     (when (not (is-writeable? user path))
       (throw+ {:error_code ERR_NOT_WRITEABLE}))
     
+    (workaround-delete path attr)
     (delete-metadata path attr)
     {:path path :user user}))
 
