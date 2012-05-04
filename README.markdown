@@ -54,6 +54,8 @@ File/Directory Sharing
 ----------------------
 Shares a file or directory with another user. The user being shared with is given read-only access to all of the parent directories as well. This allows the user to drill down to the shared file/directory from the "Shared" section of the data management window.
 
+Note that "users" and "paths" are always lists, even if only one user or path is specified.
+
 Action: "share"
 
 Error codes: ERR_NOT_A_USER, ERR_BAD_OR_MISSING_FIELD, ERR_DOES_NOT_EXIST, ERR_NOT_OWNER
@@ -92,6 +94,8 @@ File/Directory Unsharing
 ------------------------
 Unshares a file or directory. All ACLs for the specified user are removed from the file or directory. To simply change existing ACLs, recall the /share end-point with the desired permissions.
 
+Note that "users" and "paths" are always lists, even if only one user or path is specified.
+
 Action: "unshare"
 
 Error codes: ERR_NOT_A_USER, ERR_BAD_OR_MISSING_FIELD, ERR_DOES_NOT_EXIST, ERR_NOT_OWNER
@@ -107,6 +111,43 @@ Curl command:
 
     curl -H "Content-Type:application/json" -d '{"path" : "/path/to/shared/file", "user" : "shared-with-user"}' http://nibblonian.yourhostname.org/unshare?user=fileowner
 
+Listing User Permissions
+------------------------
+
+Lists the users that have access to a file and the their permissions on the file. The user making the request and the configured rodsadmin user are filtered out of the returned list. The user making the request must own the file.
+
+Action: user-permissions
+
+Error codes: ERR_NOT_A_USER, ERR_DOES_NOT_EXIST, ERR_NOT_OWNER
+
+Curl command:
+
+    curl 'http://nibblonian.example.org/user-permissions?user=testuser&path=/iplant/home/testuser/filename'
+
+The response body:
+
+    {
+        "action" : "user-permissions",
+        "status" : "success",
+        "user-permissions" : [
+            {
+                "user" : "user1",
+                "permissions" : {
+                    "read" : true,
+                    "write" : false,
+                    "own" : false
+                }
+            },
+            {
+                "user" : "user2",
+                "permissions" : {
+                    "read" : true,
+                    "write" : false,
+                    "own" : false
+                }
+            }
+        ]
+    }
 
 File Upload
 -----------
