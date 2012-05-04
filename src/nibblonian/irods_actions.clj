@@ -685,7 +685,6 @@
               write-perm (:write perms)
               own-perm (:own perms)
               base-dir (ft/path-join "/" @zone)]
-          (set-permissions share-with fpath read-perm write-perm own-perm true)
           
           (loop [dir-path (ft/dirname fpath)]
             (when-not (= dir-path base-dir)
@@ -693,7 +692,9 @@
                     curr-write (:write curr-perms)
                     curr-own (:own curr-perms)]
                 (set-permissions share-with dir-path true curr-write curr-own)
-                (recur (ft/dirname dir-path))))))))
+                (recur (ft/dirname dir-path)))))
+          
+          (set-permissions share-with fpath read-perm write-perm own-perm true))))
     
     {:user share-withs
      :path fpaths
