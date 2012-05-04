@@ -127,6 +127,9 @@
 
   (POST "/unshare" request
         (trap "unshare" do-unshare request))
+
+  (GET "/user-permissions" request
+       (trap "user-permissions" do-user-permissions request))
   
   (route/not-found "Not Found!"))
 

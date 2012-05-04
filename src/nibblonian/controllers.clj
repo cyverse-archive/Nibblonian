@@ -72,9 +72,6 @@
 
 (defn- dir-list
   ([user directory include-files]
-     (dir-list user directory include-files true))
-  
-  ([user directory include-files include-perms]
      (when (super-user? user)
        (throw+ {:error_code ERR_NOT_AUTHORIZED
                 :user user}))
@@ -83,7 +80,7 @@
            user-dir   (utils/path-join irods-home user)
            public-dir (utils/path-join irods-home "public")
            files-to-filter (conj (filter-files) comm-dir user-dir public-dir)]
-       (irods-actions/list-dir user directory include-files files-to-filter include-perms))))
+       (irods-actions/list-dir user directory include-files files-to-filter))))
 
 (defn do-homedir
   "Returns the home directory for the listed user."
@@ -112,7 +109,7 @@
 
 (defn- gen-comm-data
   [user inc-files]
-  (let [cdata (dir-list user (community-data) inc-files false)]
+  (let [cdata (dir-list user (community-data) inc-files)]
     (assoc cdata :label "Community Data")))
 
 (defn- gen-sharing-data
