@@ -551,9 +551,9 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
 
-  (when-not (query-param? request "path")
-    (bad-query "path"))
+  (when-not (valid-body? request {:paths sequential?})
+    (bad-body request {:paths sequential?}))
 
   (let [user (query-param request "user")
-        path (query-param request "path")]
-    {:user-permissions (irods-actions/list-perms user path)}))
+        paths (get-in request [:body :paths])]
+    {:paths (irods-actions/list-perms user paths)}))

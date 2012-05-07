@@ -122,28 +122,34 @@ Error codes: ERR_NOT_A_USER, ERR_DOES_NOT_EXIST, ERR_NOT_OWNER
 
 Curl command:
 
-    curl 'http://nibblonian.example.org/user-permissions?user=testuser&path=/iplant/home/testuser/filename'
+    curl -H "Content-Type:application/json" -d '{"paths" : ["/iplant/home/testuser/testfile", "/iplant/home/testuser/testfile2"]}' 'http://nibblonian.example.org/user-permissions?user=testuser'
 
 The response body:
 
     {
         "action" : "user-permissions",
         "status" : "success",
-        "user-permissions" : [
+        "paths" : [
             {
-                "user" : "user1",
-                "permissions" : {
-                    "read" : true,
-                    "write" : false,
-                    "own" : false
-                }
+               "path" : "/iplant/home/testuser/testfile",
+               "user-permissions" : {
+                   "user" : "user1", 
+                   "permissions" : {
+                       "read" : true,
+                       "write" : false,
+                       "own" : false
+                   }
+               }
             },
             {
-                "user" : "user2",
-                "permissions" : {
-                    "read" : true,
-                    "write" : false,
-                    "own" : false
+                "path" : "/iplant/home/testuser/testfile2",
+                "user-permissions" : {
+                    "user" : "user2",
+                    "permissions" : {
+                        "read" : true,
+                        "write" : false,
+                        "own" : false
+                    }
                 }
             }
         ]

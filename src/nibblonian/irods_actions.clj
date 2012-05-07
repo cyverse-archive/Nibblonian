@@ -25,26 +25,39 @@
                 #(ft/path-join dirpath %) 
                 (.getListInDir fs (file dirpath)))))))
 
-(defn list-perms
+(defn- list-perm
   [user abspath]
+  {:path abspath
+   :user-permissions (filter
+                 #(not (or (= (:user %1) user)
+                           (= (:user %1) @username)))
+                 (list-user-perms abspath))})
+
+(defn list-perms
+  [user abspaths]
   (with-jargon
     (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
 
-    (when-not (exists? abspath)
+    (when-not (every? exists? abspaths)
       (throw+ {:error_code ERR_DOES_NOT_EXIST
-               :path abspath}))
+               :paths (into
+                       []
+                       (filter
+                        #(not (exists? %1))
+                        abspaths))}))
     
-    (when-not (owns? user abspath)
+    (when-not (every? (partial owns? user) abspaths)
       (throw+ {:error_code ERR_NOT_OWNER
                :user user
-               :path abspath}))
+               :paths (into
+                       []
+                       (filter
+                        #(not (partial owns? user))
+                        abspaths))}))
 
-    (filter
-     #(not (or (= (:user %1) user)
-               (= (:user %1) @username)))
-     (list-user-perms abspath))))
+    (into [] (map (partial list-perm user) abspaths))))
 
 (defn list-files
   [user list-entries dirpath filter-files]
