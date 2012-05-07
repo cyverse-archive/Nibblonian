@@ -132,25 +132,29 @@ The response body:
         "paths" : [
             {
                "path" : "/iplant/home/testuser/testfile",
-               "user-permissions" : {
-                   "user" : "user1", 
-                   "permissions" : {
-                       "read" : true,
-                       "write" : false,
-                       "own" : false
+               "user-permissions" : [
+                   {
+                       "user" : "user1", 
+                       "permissions" : {
+                           "read" : true,
+                           "write" : false,
+                           "own" : false
+                       }
                    }
-               }
+               ]
             },
             {
                 "path" : "/iplant/home/testuser/testfile2",
-                "user-permissions" : {
-                    "user" : "user2",
-                    "permissions" : {
-                        "read" : true,
-                        "write" : false,
-                        "own" : false
+                "user-permissions" : [
+                    {
+                        "user" : "user2",
+                        "permissions" : {
+                            "read" : true,
+                            "write" : false,
+                            "own" : false
+                        }
                     }
-                }
+                ]
             }
         ]
     }
