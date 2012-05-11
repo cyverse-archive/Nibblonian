@@ -66,16 +66,37 @@
     (max-retries)
     (retry-sleep)))
 
+(defn local-init
+  [local-config-path]
+  (let [main-props (prps/read-properties local-config-path)]
+    (reset! props main-props)
+    
+    (jargon/init
+     (get @props "nibblonian.irods.host")
+     (get @props "nibblonian.irods.port")
+     (get @props "nibblonian.irods.user")
+     (get @props "nibblonian.irods.password")
+     (get @props "nibblonian.irods.home")
+     (get @props "nibblonian.irods.zone")
+     (get @props "nibblonian.irods.defaultResource")
+     (max-retries)
+     (retry-sleep))))
+
 (defn super-user?
   [username]
   (. username equals (get @props "nibblonian.irods.user")))
 
 (defn- dir-list
-  [user directory include-files]
-  (when (super-user? user)
-    (throw+ {:error_code ERR_NOT_AUTHORIZED
-             :user user}))
-  (irods-actions/list-dir user directory include-files (filter-files)))
+  ([user directory include-files]
+     (when (super-user? user)
+       (throw+ {:error_code ERR_NOT_AUTHORIZED
+                :user user}))
+     (let [irods-home (get @props "nibblonian.irods.home")
+           comm-dir   (community-data)
+           user-dir   (utils/path-join irods-home user)
+           public-dir (utils/path-join irods-home "public")
+           files-to-filter (conj (filter-files) comm-dir user-dir public-dir)]
+       (irods-actions/list-dir user directory include-files files-to-filter))))
 
 (defn do-homedir
   "Returns the home directory for the listed user."
@@ -107,6 +128,15 @@
   (let [cdata (dir-list user (community-data) inc-files)]
     (assoc cdata :label "Community Data")))
 
+(defn- gen-sharing-data
+  [user inc-files]
+  (let [irods-home (get @props "nibblonian.irods.home")
+        comm-dir   (community-data)
+        user-dir   (utils/path-join irods-home user)
+        public-dir (utils/path-join irods-home "public")
+        files-to-filter (conj (filter-files) comm-dir user-dir public-dir)]
+    (irods-actions/shared-root-listing user (get @props "nibblonian.irods.home") inc-files files-to-filter)))
+
 (defn do-directory
   "Performs a list-dirs command.
 
@@ -121,11 +151,12 @@
   ;;; request and the community listing should be included.
   (cond 
     (not (query-param? request "path")) 
-    (let [user      (query-param request "user")
-          inc-files (include-files? request)
-          comm-data (gen-comm-data user inc-files)
-          home-data (dir-list user (get-home-dir user) inc-files)]
-      {:roots [home-data comm-data]})
+    (let [user       (query-param request "user")
+          inc-files  (include-files? request)
+          comm-f  (future (gen-comm-data user inc-files))
+          share-f (future (gen-sharing-data user inc-files))
+          home-f  (future (dir-list user (get-home-dir user) inc-files))]
+      {:roots [@home-f @comm-f @share-f]})
     
     :else
     ;;; There's a path parameter, so simply list the directory.  
@@ -285,6 +316,55 @@
         body (:body request)]
     (log/info (str "Body: " (json/json-str body)))
     (irods-actions/metadata-set user path body)))
+
+(defn- fix-username
+  [username]
+  (if (re-seq #"@" username)
+    (subs username 0 (.indexOf username "@"))
+    username))
+
+(defn do-share
+  [request]
+  (log/debug "do-share")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (when-not (valid-body? request {:paths sequential? :users sequential? :permissions map?})
+    (bad-body request {:paths sequential? :users sequential? :permissions map?}))
+  
+  (let [user        (fix-username (query-param request "user"))
+        share-withs (map fix-username (get-in request [:body :users]))
+        fpaths      (get-in request [:body :paths])
+        perms       (get-in request [:body :permissions])]
+    (when-not (contains? perms :read)
+      (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+               :field "read"}))
+    
+    (when-not (contains? perms :write)
+      (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+               :field "write"}))
+    
+    (when-not (contains? perms :own)
+      (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+               :field "write"}))
+    
+    (irods-actions/share user share-withs fpaths perms)))
+
+(defn do-unshare
+  [request]
+  (log/debug "do-unshare")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:paths sequential? :users sequential?})
+    (bad-body request {:paths sequential? :users sequential?}))
+
+  (let [user        (fix-username (query-param request "user"))
+        share-withs (map fix-username (get-in request [:body :users]))
+        fpaths      (get-in request [:body :paths])]
+    (irods-actions/unshare user share-withs fpaths)))
 
 (defn- check-adds
   [adds]
@@ -472,3 +552,24 @@
         {:status 200 :body (irods-actions/download-file user path)}
         "Content-Disposition"
         (str "attachment; filename=\"" (utils/basename path) "\"")))))
+
+(defn do-user-permissions
+  "Handles returning the list of user permissions for a file
+   or directory.
+
+   Request parameters:
+      user - Query string field containing the username of the user
+             making the request.
+      path - Query string field containin the path to the file."
+  [request]
+  (log/debug "do-user-permissions")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:paths sequential?})
+    (bad-body request {:paths sequential?}))
+
+  (let [user (query-param request "user")
+        paths (get-in request [:body :paths])]
+    {:paths (irods-actions/list-perms user paths)}))

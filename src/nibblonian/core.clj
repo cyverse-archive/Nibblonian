@@ -122,6 +122,15 @@
           (trap "delete-metadata" 
                  do-metadata-delete request))
   
+  (POST "/share" request
+        (trap "share" do-share request))
+
+  (POST "/unshare" request
+        (trap "unshare" do-unshare request))
+
+  (POST "/user-permissions" request
+       (trap "user-permissions" do-user-permissions request))
+  
   (route/not-found "Not Found!"))
 
 (defn site-handler [routes]
@@ -136,7 +145,8 @@
 (defn parse-args
   [args]
   (cli/cli
-    args
+   args
+    ["-c" "--config" "Set the local config file to read from. Bypasses Zookeeper" :default nil]
     ["-h" "--help" "Show help." :default false :flag true]
     ["-p" "--port" "Set the port to listen on." :default 31370 :parse-fn #(Integer. %)]))
 
@@ -151,7 +161,9 @@
       (:help opts)
       (do (println help-str)
         (System/exit 0)))
-    
-    (init)
+
+    (if (:config opts)
+      (local-init (:config opts))
+      (init))
   
     (jetty/run-jetty app {:port (listen-port)})))
