@@ -66,6 +66,22 @@
     (max-retries)
     (retry-sleep)))
 
+(defn local-init
+  [local-config-path]
+  (let [main-props (prps/read-properties local-config-path)]
+    (reset! props main-props)
+    
+    (jargon/init
+     (get @props "nibblonian.irods.host")
+     (get @props "nibblonian.irods.port")
+     (get @props "nibblonian.irods.user")
+     (get @props "nibblonian.irods.password")
+     (get @props "nibblonian.irods.home")
+     (get @props "nibblonian.irods.zone")
+     (get @props "nibblonian.irods.defaultResource")
+     (max-retries)
+     (retry-sleep))))
+
 (defn super-user?
   [username]
   (. username equals (get @props "nibblonian.irods.user")))
