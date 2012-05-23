@@ -8,31 +8,117 @@
             [clojure-commons.file-utils :as ft]
             [clojure.string :as string])
   (:use [clj-jargon.jargon]
-        [nibblonian.error-codes]
+        [clojure-commons.error-codes]
         [slingshot.slingshot :only [try+ throw+]]))
 
 (def IPCRESERVED "ipc-reserved-unit")
 
-(defn filter-unreadable
-  [metadata-list]
-   (into [] (filter #(:read (:permissions %)) metadata-list)))
+(defn directory-listing
+  [user dirpath filter-files]
+  (let [fs (:fileSystemAO cm)
+        ff (set filter-files)]
+    (into [] 
+      (filter #(and (not (contains? ff %1)) 
+                    (not (contains? ff (ft/basename %1)))
+                    (is-readable? user %1)) 
+              (map
+                #(ft/path-join dirpath %) 
+                (.getListInDir fs (file dirpath)))))))
 
-(defn filter-labels
-  [files filter-files]
-  (let [ff (set filter-files)]
-    (into [] (filter #(not (contains? ff (:label %))) files))))
+(defn- list-perm
+  [user abspath]
+  {:path abspath
+   :user-permissions (filter
+                 #(not (or (= (:user %1) user)
+                           (= (:user %1) @username)))
+                 (list-user-perms abspath))})
 
-(defn file-list
-  [user files filter-files]
-  (into [] (-> (map #(sub-file-maps user %) files)
-             filter-unreadable
-             (filter-labels filter-files))))
+(defn list-perms
+  [user abspaths]
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
 
-(defn dir-list
-  [user dirs filter-files]
-  (into [] (-> (map #(sub-dir-maps user %) dirs)
-             filter-unreadable
-             (filter-labels filter-files))))
+    (when-not (every? exists? abspaths)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :paths (into
+                       []
+                       (filter
+                        #(not (exists? %1))
+                        abspaths))}))
+    
+    (when-not (every? (partial owns? user) abspaths)
+      (throw+ {:error_code ERR_NOT_OWNER
+               :user user
+               :paths (into
+                       []
+                       (filter
+                        #(not (partial owns? user))
+                        abspaths))}))
+
+    (into [] (map (partial list-perm user) abspaths))))
+
+(defn list-files
+  [user list-entries dirpath filter-files]
+  (into []
+        (filter
+         #(and (get-in %1 [:permissions :read]) 
+               (not (contains? filter-files (:id %1)))
+               (not (contains? filter-files (:label %1)))) 
+         (map
+          #(let [abspath (.getFormattedAbsolutePath %1)
+                 label   (ft/basename abspath)
+                 perms   (dataobject-perm-map user abspath)
+                 created (str (long (.. %1 getCreatedAt getTime)))
+                 lastmod (str (long (.. %1 getModifiedAt getTime)))
+                 size    (str (.getDataSize %1))]
+             (-> {}
+                 (assoc
+                     :id            abspath
+                     :label         label
+                     :permissions   perms
+                     :date-created  created
+                     :date-modified lastmod
+                     :file-size     size))) 
+          list-entries))))
+
+(defn has-sub-dirs
+  [user abspath]
+  (let [lister (:lister cm)
+        list-entries (.listCollectionsUnderPath lister abspath 0)]
+    (> (count
+         (filter 
+           #(= (:read %1) true) 
+           (map 
+             #(collection-perm-map user (.getFormattedAbsolutePath %1)) 
+             list-entries)))
+       0)))
+
+(defn list-dirs
+  [user list-entries dirpath filter-files]
+  (into []
+        (filter
+         #(and (get-in %1 [:permissions :read])
+               (not (contains? filter-files (:id %1)))
+               (not (contains? filter-files (:label %1)))) 
+         (pmap
+          #(let [abspath (.getFormattedAbsolutePath %1)
+                 label   (ft/basename abspath)
+                 perms   (collection-perm-map user abspath)
+                 created (str (long (.. %1 getCreatedAt getTime)))
+                 lastmod (str (long (.. %1 getModifiedAt getTime)))
+                 size    (str (.getDataSize %1))]
+             (-> {}
+                 (assoc
+                     :id            abspath
+                     :label         label
+                     :permissions   perms
+                     :date-created  created
+                     :date-modified lastmod
+                     :hasSubDirs    (has-sub-dirs user abspath)
+                     :file-size     size)))
+          list-entries))))
 
 (defn list-dir
   "A non-recursive listing of a directory. Contains entries for files.
@@ -51,9 +137,9 @@
      A tree of maps as described above."
   ([user path filter-files]
      (list-dir user path true filter-files))
-  
+
   ([user path include-files filter-files]
-     (log/debug (str "list-dir " user " " path))
+     (log/warn (str "list-dir " user " " path))
      (with-jargon
        (when (not (user-exists? user))
          (throw+ {:error_code ERR_NOT_A_USER
@@ -68,26 +154,26 @@
                   :path path
                   :user user}))
        
-       (let [data   (list-all (ft/rm-last-slash path))
-             groups (group-by (fn [datum] (. datum isCollection)) data)
-             files  (get groups false)
-             dirs   (get groups true)]
-         (if include-files
-           {:id path
-            :label         (ft/basename path)
-            :hasSubDirs    (> (count dirs) 0)
-            :date-created  (created-date path)
-            :date-modified (lastmod-date path)
-            :permissions   (collection-perm-map user path)
-            :files         (file-list user files filter-files) 
-            :folders       (dir-list user dirs filter-files)}
-           {:id path
-            :date-created  (created-date path)
-            :date-modified (lastmod-date path)
-            :permissions   (collection-perm-map user path)
-            :hasSubDirs    (> (count dirs) 0)
-            :label         (ft/basename path)
-            :folders       (dir-list user dirs filter-files)})))))
+       (let [fixed-path   (ft/rm-last-slash path)
+             ff           (set filter-files)
+             all-entries  (.listDataObjectsAndCollectionsUnderPath (:lister cm) fixed-path)
+             file-entries (filter #(.isDataObject %1) all-entries)
+             dir-entries  (filter #(.isCollection %1) all-entries)
+             files  (list-files user file-entries (ft/rm-last-slash path) ff)
+             dirs   (list-dirs user dir-entries (ft/rm-last-slash path) ff)
+             add-files    #(if include-files
+                             (assoc %1 :files files)
+                             %1)]
+         (-> {}
+             (assoc
+                 :id path
+                 :label         (ft/basename path)
+                 :hasSubDirs    (> (count dirs) 0)
+                 :date-created  (created-date path)
+                 :date-modified (lastmod-date path)
+                 :permissions   (collection-perm-map user path)
+                 :folders       dirs)
+             add-files)))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
@@ -575,3 +661,121 @@
         :zone irods-zone
         :defaultStorageResource irods-dsr
         :key cart-key}})))
+
+(defn share
+  [user share-withs fpaths perms]
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    
+    (when-not (every? user-exists? share-withs)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :users (into []
+                           (filter
+                            #(not (user-exists? %1))
+                            share-withs))}))
+    
+    (when-not (every? exists? fpaths)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :paths (into []
+                           (filter
+                            #(not (exists? %1))
+                            fpaths))}))
+    
+    (when-not (every? (partial owns? user) fpaths)
+      (throw+ {:error_code ERR_NOT_OWNER
+               :paths (into []
+                            (filter
+                             (partial owns? user)
+                             fpaths))
+               :user user}))
+
+    (doseq [share-with share-withs]
+      (doseq [fpath fpaths]
+        (let [read-perm (:read perms)
+              write-perm (:write perms)
+              own-perm (:own perms)
+              base-dir (ft/path-join "/" @zone)]
+          
+          (loop [dir-path (ft/dirname fpath)]
+            (when-not (= dir-path base-dir)
+              (let [curr-perms (permissions share-with dir-path)
+                    curr-write (:write curr-perms)
+                    curr-own (:own curr-perms)]
+                (set-permissions share-with dir-path true curr-write curr-own)
+                (recur (ft/dirname dir-path)))))
+          
+          (set-permissions share-with fpath read-perm write-perm own-perm true))))
+    
+    {:user share-withs
+     :path fpaths
+     :permissions perms}))
+
+(defn contains-accessible-obj?
+  [user dpath]
+  (some #(is-readable? user %1) (list-paths dpath)))
+
+(defn contains-subdir?
+  [dpath]
+  (some is-dir? (list-paths dpath)))
+
+(defn subdirs
+  [dpath]
+  (filter is-dir? (list-paths dpath)))
+
+(defn unshare
+  "Allows 'user' to unshare file 'fpath' with user 'unshare-with'."
+  [user unshare-withs fpaths]
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+
+    (when-not (every? user-exists? unshare-withs)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :users (into []
+                            (filter
+                             #(not (user-exists? %1))
+                             unshare-withs))}))
+
+    (when-not (every? exists? fpaths)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :paths (into []
+                            (filter
+                             #(not (exists? %1))
+                             fpaths))}))
+
+    (when-not (every? (partial owns? user) fpaths)
+      (throw+ {:error_code ERR_NOT_OWNER
+               :path (into []
+                           (filter
+                            #(not (partial owns? user)))
+                           fpaths)
+               :user user}))
+
+    (doseq [unshare-with unshare-withs]
+      (doseq [fpath fpaths]
+        (let [base-dir    (ft/path-join "/" @zone)
+              parent-path (ft/dirname fpath)]
+          (remove-permissions unshare-with fpath)
+          
+          (when-not (and (contains-subdir? parent-path)
+                         (some #(is-readable? user %1) (subdirs parent-path)))
+            (loop [dir-path parent-path]
+              (when-not (or (= dir-path base-dir)
+                            (contains-accessible-obj? unshare-with dir-path))
+                (remove-permissions unshare-with dir-path)
+                (recur (ft/dirname dir-path)))))))))
+  {:user unshare-withs
+   :path fpaths})
+
+(defn shared-root-listing
+  [user root-dir inc-files filter-files]
+  
+  (with-jargon
+    (when-not (is-readable? user root-dir)
+      (set-permissions user (ft/rm-last-slash root-dir) true false false))
+    
+    (let [sharing-data (list-dir user (ft/rm-last-slash root-dir) inc-files filter-files)]
+      (assoc sharing-data :label "Shared"))))

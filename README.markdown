@@ -50,6 +50,115 @@ A list of the known error codes is maintained here: [error codes](https://github
 
 In other cases Nibblonian should return a stacktrace. Work is planned to convert Nibblonian's error handling over to [slingshot](https://github.com/scgilardi/slingshot) (I didn't know about slingshot when I originally wrote Nibblonian).
 
+File/Directory Sharing
+----------------------
+Shares a file or directory with another user. The user being shared with is given read-only access to all of the parent directories as well. This allows the user to drill down to the shared file/directory from the "Shared" section of the data management window.
+
+Note that "users" and "paths" are always lists, even if only one user or path is specified.
+
+Action: "share"
+
+Error codes: ERR_NOT_A_USER, ERR_BAD_OR_MISSING_FIELD, ERR_DOES_NOT_EXIST, ERR_NOT_OWNER
+
+Request body JSON:
+
+    {
+        "paths" : ["/path/to/shared/file"],
+        "users" : ["shared-with-user"],
+        "permissions" : {
+            "read" : true,
+            "write" : true,
+            "own" : false
+        }
+    }
+
+Curl command:
+
+    curl -H "Content-Type:application/json" -d '{"path" : "/path/to/shared/file", "user" : "shared-with-user", "permissions" : {"read" : true, "write" : true, "own" : false}}' http://nibblonian.yourhostname.org/share?user=fileowner
+
+The response body:
+
+    {
+        "action" : "share",
+        "status" : "success",
+        "users" : ["users shared with"],
+        "paths" : ["the paths that were shared"],
+        "permissions" : {
+            "read" : true,
+            "write" : true,
+            "own" : false
+        }
+    }
+
+File/Directory Unsharing
+------------------------
+Unshares a file or directory. All ACLs for the specified user are removed from the file or directory. To simply change existing ACLs, recall the /share end-point with the desired permissions.
+
+Note that "users" and "paths" are always lists, even if only one user or path is specified.
+
+Action: "unshare"
+
+Error codes: ERR_NOT_A_USER, ERR_BAD_OR_MISSING_FIELD, ERR_DOES_NOT_EXIST, ERR_NOT_OWNER
+
+Request body JSON
+
+    {
+        "paths" : ["/path/to/shared/file"],
+        "users" : ["shared-with-user"]
+    }
+
+Curl command:
+
+    curl -H "Content-Type:application/json" -d '{"path" : "/path/to/shared/file", "user" : "shared-with-user"}' http://nibblonian.yourhostname.org/unshare?user=fileowner
+
+Listing User Permissions
+------------------------
+
+Lists the users that have access to a file and the their permissions on the file. The user making the request and the configured rodsadmin user are filtered out of the returned list. The user making the request must own the file.
+
+Action: user-permissions
+
+Error codes: ERR_NOT_A_USER, ERR_DOES_NOT_EXIST, ERR_NOT_OWNER
+
+Curl command:
+
+    curl -H "Content-Type:application/json" -d '{"paths" : ["/iplant/home/testuser/testfile", "/iplant/home/testuser/testfile2"]}' 'http://nibblonian.example.org/user-permissions?user=testuser'
+
+The response body:
+
+    {
+        "action" : "user-permissions",
+        "status" : "success",
+        "paths" : [
+            {
+               "path" : "/iplant/home/testuser/testfile",
+               "user-permissions" : [
+                   {
+                       "user" : "user1", 
+                       "permissions" : {
+                           "read" : true,
+                           "write" : false,
+                           "own" : false
+                       }
+                   }
+               ]
+            },
+            {
+                "path" : "/iplant/home/testuser/testfile2",
+                "user-permissions" : [
+                    {
+                        "user" : "user2",
+                        "permissions" : {
+                            "read" : true,
+                            "write" : false,
+                            "own" : false
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
 File Upload
 -----------
 Uploads are now handled by iDrop Lite. Nibblonian is only responsible for generating a temporary password for a user and returning connection information.
@@ -149,76 +258,104 @@ Response for the first curl command:
        "path":{
           "id":"\/tempZone\/home\/rods",
           "label":"rods",
+          "user-permissions" : [], 
           "files":[
              {
                 "id":"\/tempZone\/home\/rods\/project2.clj",
-                "label":"project2.clj"
+                "label":"project2.clj",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/results2.txt",
-                "label":"results2.txt"
+                "label":"results2.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploads2222.txt",
-                "label":"uploads2222.txt"
+                "label":"uploads2222.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploads333.txt",
-                "label":"uploads333.txt"
+                "label":"uploads333.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploads5555.txt",
-                "label":"uploads5555.txt"
+                "label":"uploads5555.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploadsss.txt",
-                "label":"uploadsss.txt"
+                "label":"uploadsss.txt",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploadtest",
-                "label":"uploadtest"
+                "label":"uploadtest",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/uploadtest5000",
-                "label":"uploadtest5000"
+                "label":"uploadtest5000",
+                "user-permissions" : []
              }
           ],
           "folders":[
              {
                 "id":"\/tempZone\/home\/rods\/bargle",
-                "label":"bargle"
+                "label":"bargle",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/big-test",
-                "label":"big-test"
+                "label":"big-test",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/fakedir2",
-                "label":"fakedir2"
+                "label":"fakedir2",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/foo1",
-                "label":"foo1"
+                "label":"foo1",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/foobarbaz",
-                "label":"foobarbaz"
+                "label":"foobarbaz",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/src",
-                "label":"src"
+                "label":"src",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/target",
-                "label":"target"
+                "label":"target",
+                "user-permissions" : []
              },
              {
                 "id":"\/tempZone\/home\/rods\/test1",
-                "label":"test1"
+                "label":"test1",
+                "user-permissions" : []
              }
           ]
        }
     }
+
+The user permissions fields are lists of maps in the following format:
+
+    [{
+         "user" : "username",
+         "permissions" : {
+             "read" : true,
+             "write" : true,
+             "own" : true
+         }      
+    }]
 
 
 Directory Move
