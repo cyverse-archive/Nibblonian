@@ -40,6 +40,10 @@
 (defn filter-files []
   (string/split (get @props "nibblonian.app.filter-files") #","))
 
+(defn use-trash []
+  (java.lang.Boolean/parseBoolean
+    (get @props "nibblonian.app.use-trash")))
+
 (defn listen-port []
   (Integer/parseInt (get @props "nibblonian.app.listen-port")))
 
@@ -64,7 +68,8 @@
     (get @props "nibblonian.irods.zone")
     (get @props "nibblonian.irods.defaultResource")
     (max-retries)
-    (retry-sleep)))
+    (retry-sleep)
+    (use-trash)))
 
 (defn local-init
   [local-config-path]
@@ -80,7 +85,8 @@
      (get @props "nibblonian.irods.zone")
      (get @props "nibblonian.irods.defaultResource")
      (max-retries)
-     (retry-sleep))))
+     (retry-sleep)
+     (use-trash))))
 
 (defn super-user?
   [username]
