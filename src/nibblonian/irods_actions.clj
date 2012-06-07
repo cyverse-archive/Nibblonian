@@ -102,7 +102,7 @@
          #(and (get-in %1 [:permissions :read])
                (not (contains? filter-files (:id %1)))
                (not (contains? filter-files (:label %1)))) 
-         (pmap
+         (map
           #(let [abspath (.getFormattedAbsolutePath %1)
                  label   (ft/basename abspath)
                  perms   (collection-perm-map user abspath)
