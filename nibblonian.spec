@@ -13,7 +13,7 @@ Group: Applications
 BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
 License: BSD
 Provides: nibblonian
-Requires: iplant-service-config >= 0.1.0-4
+Requires: iplant-service-config >= 0.1.0-5
 Source0: %{name}-%{version}.tar.gz
 
 %description
