@@ -693,17 +693,19 @@
 
     (doseq [share-with share-withs]
       (doseq [fpath fpaths]
-        (let [read-perm (:read perms)
+        (let [read-perm  (:read perms)
               write-perm (:write perms)
-              own-perm (:own perms)
-              base-dir (ft/path-join "/" @zone)]
-          
+              own-perm   (:own perms)
+              base-dir   (ft/path-join "/" @zone)]
           (loop [dir-path (ft/dirname fpath)]
             (when-not (= dir-path base-dir)
               (let [curr-perms (permissions share-with dir-path)
+                    curr-read  (:read curr-perms)
                     curr-write (:write curr-perms)
-                    curr-own (:own curr-perms)]
+                    curr-own   (:own curr-perms)]
+                (.setAccessPermissionToNotInherit (collection dir-path) (:zone cm) dir-path false)
                 (set-permissions share-with dir-path true curr-write curr-own)
+                (.setAccessPermissionInherit (collection dir-path) (:zone cm) dir-path false)
                 (recur (ft/dirname dir-path)))))
           
           (set-permissions share-with fpath read-perm write-perm own-perm true))))
@@ -765,7 +767,9 @@
             (loop [dir-path parent-path]
               (when-not (or (= dir-path base-dir)
                             (contains-accessible-obj? unshare-with dir-path))
+                (.setAccessPermissionToNotInherit (collection dir-path) (:zone cm) dir-path false)
                 (remove-permissions unshare-with dir-path)
+                (.setAccessPermissionToInherit (collection dir-path) (:zone cm) dir-path false)
                 (recur (ft/dirname dir-path)))))))))
   {:user unshare-withs
    :path fpaths})
