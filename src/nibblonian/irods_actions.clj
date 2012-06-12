@@ -200,6 +200,7 @@
     
     (mkdir path)
     (set-owner path user)
+    (fix-owners path user @clj-jargon.jargon/username)
     {:path path 
      :permissions (collection-perm-map user path)}))
 
@@ -703,9 +704,7 @@
                     curr-read  (:read curr-perms)
                     curr-write (:write curr-perms)
                     curr-own   (:own curr-perms)]
-                (.setAccessPermissionToNotInherit (collection dir-path) (:zone cm) dir-path false)
                 (set-permissions share-with dir-path true curr-write curr-own)
-                (.setAccessPermissionInherit (collection dir-path) (:zone cm) dir-path false)
                 (recur (ft/dirname dir-path)))))
           
           (set-permissions share-with fpath read-perm write-perm own-perm true))))
@@ -767,9 +766,7 @@
             (loop [dir-path parent-path]
               (when-not (or (= dir-path base-dir)
                             (contains-accessible-obj? unshare-with dir-path))
-                (.setAccessPermissionToNotInherit (collection dir-path) (:zone cm) dir-path false)
                 (remove-permissions unshare-with dir-path)
-                (.setAccessPermissionToInherit (collection dir-path) (:zone cm) dir-path false)
                 (recur (ft/dirname dir-path)))))))))
   {:user unshare-withs
    :path fpaths})
