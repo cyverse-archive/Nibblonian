@@ -30,8 +30,8 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d/
 
 %build
 unset JAVA_OPTS
-lein deps
-lein uberjar
+lein2 deps
+lein2 uberjar
 
 %install
 install -d $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
@@ -59,7 +59,7 @@ if [ "$1" -ge "1" ] ; then
 fi
 
 %clean
-lein clean
+lein2 clean
 rm -r lib/*
 rm -r $RPM_BUILD_ROOT
 
