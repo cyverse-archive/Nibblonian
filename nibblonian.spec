@@ -41,7 +41,7 @@ install -d $RPM_BUILD_ROOT/var/log/nibblonian/
 install -d $RPM_BUILD_ROOT/etc/nibblonian/
 
 install nibblonian $RPM_BUILD_ROOT/etc/init.d/
-install nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
+install target/nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
 install conf/log4j.properties $RPM_BUILD_ROOT/etc/nibblonian/
 
 %post
