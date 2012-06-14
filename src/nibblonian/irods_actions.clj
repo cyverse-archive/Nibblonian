@@ -200,6 +200,7 @@
     
     (mkdir path)
     (set-owner path user)
+    (fix-owners path user @clj-jargon.jargon/username)
     {:path path 
      :permissions (collection-perm-map user path)}))
 
@@ -693,16 +694,16 @@
 
     (doseq [share-with share-withs]
       (doseq [fpath fpaths]
-        (let [read-perm (:read perms)
+        (let [read-perm  (:read perms)
               write-perm (:write perms)
-              own-perm (:own perms)
-              base-dir (ft/path-join "/" @zone)]
-          
+              own-perm   (:own perms)
+              base-dir   (ft/path-join "/" @zone)]
           (loop [dir-path (ft/dirname fpath)]
             (when-not (= dir-path base-dir)
               (let [curr-perms (permissions share-with dir-path)
+                    curr-read  (:read curr-perms)
                     curr-write (:write curr-perms)
-                    curr-own (:own curr-perms)]
+                    curr-own   (:own curr-perms)]
                 (set-permissions share-with dir-path true curr-write curr-own)
                 (recur (ft/dirname dir-path)))))
           

@@ -6,14 +6,14 @@
 Summary: nibblonian
 Name: nibblonian
 Version: 0.1.0
-Release: 10
+Release: 12
 Epoch: 0
 BuildArchitectures: noarch
 Group: Applications
 BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
 License: BSD
 Provides: nibblonian
-Requires: iplant-service-config >= 0.1.0-4
+Requires: iplant-service-config >= 0.1.0-5
 Source0: %{name}-%{version}.tar.gz
 
 %description
@@ -30,8 +30,8 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d/
 
 %build
 unset JAVA_OPTS
-lein deps
-lein uberjar
+lein2 deps
+lein2 uberjar
 
 %install
 install -d $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
@@ -41,7 +41,7 @@ install -d $RPM_BUILD_ROOT/var/log/nibblonian/
 install -d $RPM_BUILD_ROOT/etc/nibblonian/
 
 install nibblonian $RPM_BUILD_ROOT/etc/init.d/
-install nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
+install target/nibblonian-0.0.5-SNAPSHOT-standalone.jar $RPM_BUILD_ROOT/usr/local/lib/nibblonian/
 install conf/log4j.properties $RPM_BUILD_ROOT/etc/nibblonian/
 
 %post
@@ -59,8 +59,7 @@ if [ "$1" -ge "1" ] ; then
 fi
 
 %clean
-lein clean
-rm -r lib/*
+lein2 clean
 rm -r $RPM_BUILD_ROOT
 
 %files
