@@ -213,30 +213,36 @@
 
    Returns a map describing the success or failure of the deletion command."
   [user paths type-func? type-error]
-  (with-jargon
-    (when (not (user-exists? user))
-      (throw+ {:error_code ERR_NOT_A_USER
-               :user user}))
-    
-    ;Make sure all of the paths exist.
-    (when (not (paths-exist? paths))
-      (throw+ {:paths (into [] (for [path paths :when (not (exists? path))] path))
-               :error_code ERR_DOES_NOT_EXIST})) 
-    
-    ;Make sure all of the paths are writeable.
-    (when (not (paths-writeable? user paths))
-      (throw+ {:paths (into [] (for [path paths :when (not (is-writeable? user path))] path))
-               :error_code ERR_NOT_WRITEABLE}))
-    
-    ;Make sure all of the paths are directories.
-    (when (not (every? true? (map #(type-func? %) paths)))
-      (throw+ {:error_code type-error
-               :paths (into [] (for [p paths :when (not (type-func? p))] p))}))
-    
-    (doseq [p paths] 
-      (delete p))
-    
-    {:paths paths}))
+  (let [home-matcher #(= (str "/" @zone "/home/" user)
+                         (ft/rm-last-slash %1))] 
+    (with-jargon
+      (when-not (user-exists? user)
+        (throw+ {:error_code ERR_NOT_A_USER
+                 :user user}))
+      
+      ;Make sure all of the paths exist.
+      (when-not (paths-exist? paths)
+        (throw+ {:paths (filterv #(not (exists? %)) paths)
+                 :error_code ERR_DOES_NOT_EXIST})) 
+      
+      ;Make sure all of the paths are writeable.
+      (when-not (paths-writeable? user paths)
+        (throw+ {:paths (filterv #(not (is-writeable? user %)) paths)
+                 :error_code ERR_NOT_WRITEABLE}))
+      
+      ;Make sure all of the paths are directories.
+      (when-not  (every? true? (mapv #(type-func? %) paths))
+        (throw+ {:error_code type-error
+                 :paths (filterv #(not (type-func? %)) paths)}))
+      
+      (when (some true? (mapv home-matcher paths))
+        (throw+ {:error_code ERR_NOT_AUTHORIZED 
+                 :paths (filterv home-matcher paths)}))
+      
+      (doseq [p paths] 
+        (delete p))
+      
+      {:paths paths})))
 
 (defn delete-dirs
   [user paths]
