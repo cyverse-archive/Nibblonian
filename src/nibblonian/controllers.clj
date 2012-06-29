@@ -52,7 +52,7 @@
         zkurl (get tmp-props "zookeeper")]
     (cl/with-zk
       zkurl
-      (when (not (cl/can-run?))
+      (when-not (cl/can-run?)
         (log/warn "THIS APPLICATION CANNOT RUN ON THIS MACHINE. SO SAYETH ZOOKEEPER.")
         (log/warn "THIS APPLICATION WILL NOT EXECUTE CORRECTLY."))
       
@@ -90,7 +90,7 @@
 
 (defn super-user?
   [username]
-  (. username equals (get @props "nibblonian.irods.user")))
+  (.equals username (get @props "nibblonian.irods.user")))
 
 (defn- dir-list
   ([user directory include-files]
@@ -108,7 +108,7 @@
   "Returns the home directory for the listed user."
   [request]
   (log/debug "do-homedir")
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user" "home"))
   (let [user       (query-param request "user")
         irods-home (get @props "nibblonian.irods.home")]
@@ -150,7 +150,7 @@
      user - Query string value containing a username."
   [request]
   (log/debug "do-directory")
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user"))
   
   ;;; If there's no path parameter, then it's a top-level
@@ -184,10 +184,10 @@
      source - JSON field from the body telling which file to rename."
   [request rename-func]
   (log/debug "do-rename")
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when (not (valid-body? request {:source string? :dest string?}))
+  (when-not (valid-body? request {:source string? :dest string?})
     (bad-body request {:source string? :dest string?})) 
   
   (let [body-json (:body request)
@@ -213,10 +213,10 @@
      paths - JSON field containing a list of paths that should be deleted."
   [request delete-func]
   (log/debug "do-delete")
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when (not (valid-body? request {:paths sequential?}))
+  (when-not (valid-body? request {:paths sequential?})
     (bad-body request {:paths sequential?})) 
   
   (let [body-json (:body request)
@@ -241,10 +241,10 @@
      dest - JSON field containing the destination path."
   [request move-func]
   (log/debug "do-move")
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when (not (valid-body? request {:sources sequential? :dest string?}))
+  (when-not (valid-body? request {:sources sequential? :dest string?})
     (bad-body request {:sources sequential? :dest string?}))
   
   (let [body-json (:body request)
@@ -268,10 +268,10 @@
      path - JSON field containing the path to create."
   [request]
   (log/debug "do-create")  
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when (not (valid-body? request {:path string?}))
+  (when-not (valid-body? request {:path string?})
     (bad-body request {:path string?})) 
   
   (let [body-json (:body request)
@@ -286,10 +286,12 @@
 (defn do-metadata-get
   [request]
   (log/debug "do-metadata-get")
-  (when (not (query-param? request "user")) 
+  (when-not (query-param? request "user") 
     (bad-query "user"))
-  (when (not (query-param? request "path")) 
+  
+  (when-not (query-param? request "path") 
     (bad-query "user"))
+  
   (let [user (query-param request "user")
         path (query-param request "path")]
     (irods-actions/metadata-get user path)))
@@ -297,10 +299,12 @@
 (defn do-tree-get
   [request]
   (log/debug "do-tree-get")
-  (when (not (query-param? request "user")) 
+  (when-not (query-param? request "user") 
     (bad-query "user"))
-  (when (not (query-param? request "path")) 
+  
+  (when-not (query-param? request "path") 
     (bad-query "user"))
+  
   (let [user (query-param request "user")
         path (query-param request "path")]
     (irods-actions/get-tree user path)))
@@ -308,13 +312,13 @@
 (defn do-metadata-set
   [request]
   (log/debug "do-metadata-set")
-  (when (not (query-param? request "user")) 
+  (when-not (query-param? request "user") 
     (bad-query "user"))
   
-  (when (not (query-param? request "path")) 
+  (when-not (query-param? request "path") 
     (bad-query "path"))
   
-  (when (not (valid-body? request {:attr string? :value string? :unit string?}))
+  (when-not (valid-body? request {:attr string? :value string? :unit string?})
     (bad-body request {:attr string? :value string? :unit string?}))
   
   (let [user (query-param request "user")
@@ -374,25 +378,25 @@
 
 (defn- check-adds
   [adds]
-  (into [] (map #(= (set (keys %)) (set [:attr :value :unit])) adds)))
+  (mapv #(= (set (keys %)) (set [:attr :value :unit])) adds))
 
 (defn- check-dels
   [dels]
-  (into [] (map #(string? %) dels)))
+  (mapv string? dels))
 
 (defn do-metadata-batch-set
   [request]
   (log/debug "do-metadata-set")
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when (not (query-param? request "path"))
+  (when-not (query-param? request "path")
     (bad-query "path"))
   
-  (when (not (valid-body? request {:add sequential?}))
+  (when-not (valid-body? request {:add sequential?})
     (bad-body request {:add sequential?}))
   
-  (when (not (valid-body? request {:delete sequential?}))
+  (when-not (valid-body? request {:delete sequential?})
     (bad-body request {:delete sequential?}))
   
   (let [user (query-param request "user")
@@ -400,12 +404,12 @@
         body (:body request)
         adds (:add body)
         dels (:delete body)]
-    (when (> (count adds) 0)
+    (when (pos? (count adds))
       (if (not (every? true? (check-adds adds)))
         (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
                  :field "add"})))
     
-    (when (> (count dels) 0)
+    (when (pos? (count dels))
       (if (not (every? true? (check-dels dels)))
         (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
                  :field "add"})))
@@ -414,13 +418,13 @@
 (defn do-tree-set
   [request]
   (log/debug "do-tree-set")
-  (when (not (query-param? request "user")) 
+  (when-not (query-param? request "user") 
     (bad-query "user"))
   
-  (when (not (query-param? request "path"))
+  (when-not (query-param? request "path")
     (bad-query "path"))
   
-  (when (not (valid-body? request {:tree-urls vector}))
+  (when-not (valid-body? request {:tree-urls vector})
     (bad-body request {:tree-urls vector}))
   
   (let [user (query-param request "user")
@@ -432,13 +436,13 @@
 (defn do-metadata-delete
   [request]
   (log/debug "do-metadata-delete")
-  (when (not (query-param? request "user")) 
+  (when-not (query-param? request "user") 
     (bad-query "user"))
   
-  (when (not (query-param? request "path")) 
+  (when-not (query-param? request "path") 
     (bad-query "path"))
   
-  (when (not (query-param? request "attr")) 
+  (when-not (query-param? request "attr") 
     (bad-query "attr"))
   
   (let [user (query-param request "user")
@@ -455,10 +459,10 @@
      path - Query string field containing the file to preview."
   [request]
   (log/debug "do-preview")
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when (not (query-param? request "path"))
+  (when-not (query-param? request "path")
     (bad-query "path"))
   
   (let [user (query-param request "user")
@@ -474,10 +478,10 @@
   "Returns True if the path exists and False if it doesn't."
   [request]
   (log/debug "do-exists")
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when (not (valid-body? request {:paths vector?}))
+  (when-not (valid-body? request {:paths vector?})
     (bad-body request {:paths vector?}))
   
   (let [paths (:paths (:body request))]
@@ -487,10 +491,10 @@
   "Returns a manifest consisting of preview and rawcontent fields for a file."
   [request]
   (log/debug "do-manifest")
-  (when (not (query-param? request "user")) 
+  (when-not (query-param? request "user") 
     (bad-query "user"))
   
-  (when (not (query-param? request "path")) 
+  (when-not (query-param? request "path") 
     (bad-query "path"))
   
   (let [user (query-param request "user")
@@ -499,10 +503,10 @@
 
 (defn do-download
   [request]
-  (when (not (query-param? request "user")) 
+  (when-not (query-param? request "user") 
     (bad-query "user"))
   
-  (when (not (valid-body? request {:paths sequential?}))
+  (when-not (valid-body? request {:paths sequential?})
     (bad-body request {:paths sequential?}))
   
   (let [user      (query-param request "user")
@@ -511,7 +515,7 @@
 
 (defn do-upload
   [request]
-  (when (not (query-param? request "user"))
+  (when-not (query-param? request "user")
     (bad-query "user"))
   
   (let [user (query-param request "user")]
@@ -525,10 +529,10 @@
      path - Query string field containing the path to download."
   [request]
   (log/debug "do-download")  
-  (when (not (query-param? request "user")) 
+  (when-not (query-param? request "user") 
     (bad-query "user"))
   
-  (when (not (query-param? request "path")) 
+  (when-not (query-param? request "path") 
     (bad-query "path"))
   
   (let [user (query-param request "user")

@@ -17,13 +17,12 @@
   [user dirpath filter-files]
   (let [fs (:fileSystemAO cm)
         ff (set filter-files)]
-    (into [] 
-      (filter #(and (not (contains? ff %1)) 
-                    (not (contains? ff (ft/basename %1)))
-                    (is-readable? user %1)) 
-              (map
-                #(ft/path-join dirpath %) 
-                (.getListInDir fs (file dirpath)))))))
+    (filterv #(and (not (contains? ff %1)) 
+                   (not (contains? ff (ft/basename %1)))
+                   (is-readable? user %1)) 
+             (map
+               #(ft/path-join dirpath %) 
+               (.getListInDir fs (file dirpath))))))
 
 (defn- list-perm
   [user abspath]
@@ -57,68 +56,66 @@
                         #(not (partial owns? user))
                         abspaths))}))
 
-    (into [] (map (partial list-perm user) abspaths))))
+    (mapv (partial list-perm user) abspaths)))
 
 (defn list-files
   [user list-entries dirpath filter-files]
-  (into []
-        (filter
-         #(and (get-in %1 [:permissions :read]) 
-               (not (contains? filter-files (:id %1)))
-               (not (contains? filter-files (:label %1)))) 
-         (map
-          #(let [abspath (.getFormattedAbsolutePath %1)
-                 label   (ft/basename abspath)
-                 perms   (dataobject-perm-map user abspath)
-                 created (str (long (.. %1 getCreatedAt getTime)))
-                 lastmod (str (long (.. %1 getModifiedAt getTime)))
-                 size    (str (.getDataSize %1))]
-             (-> {}
-                 (assoc
-                     :id            abspath
-                     :label         label
-                     :permissions   perms
-                     :date-created  created
-                     :date-modified lastmod
-                     :file-size     size))) 
-          list-entries))))
+  (filterv
+    #(and (get-in %1 [:permissions :read]) 
+          (not (contains? filter-files (:id %1)))
+          (not (contains? filter-files (:label %1)))) 
+    (map
+      #(let [abspath (.getFormattedAbsolutePath %1)
+             label   (ft/basename abspath)
+             perms   (dataobject-perm-map user abspath)
+             created (str (long (.. %1 getCreatedAt getTime)))
+             lastmod (str (long (.. %1 getModifiedAt getTime)))
+             size    (str (.getDataSize %1))]
+         (assoc 
+           {}
+           :id            abspath
+           :label         label
+           :permissions   perms
+           :date-created  created
+           :date-modified lastmod
+           :file-size     size)) 
+      list-entries)))
 
 (defn has-sub-dirs
   [user abspath]
   (let [lister (:lister cm)
         list-entries (.listCollectionsUnderPath lister abspath 0)]
-    (> (count
-         (filter 
-           #(= (:read %1) true) 
-           (map 
-             #(collection-perm-map user (.getFormattedAbsolutePath %1)) 
-             list-entries)))
-       0)))
+    (pos? 
+      (count
+        (filter 
+          #(= (:read %1) true) 
+          (map 
+            #(collection-perm-map user (.getFormattedAbsolutePath %1)) 
+            list-entries))))))
 
 (defn list-dirs
   [user list-entries dirpath filter-files]
-  (into []
-        (filter
-         #(and (get-in %1 [:permissions :read])
-               (not (contains? filter-files (:id %1)))
-               (not (contains? filter-files (:label %1)))) 
-         (map
-          #(let [abspath (.getFormattedAbsolutePath %1)
-                 label   (ft/basename abspath)
-                 perms   (collection-perm-map user abspath)
-                 created (str (long (.. %1 getCreatedAt getTime)))
-                 lastmod (str (long (.. %1 getModifiedAt getTime)))
-                 size    (str (.getDataSize %1))]
-             (-> {}
-                 (assoc
-                     :id            abspath
-                     :label         label
-                     :permissions   perms
-                     :date-created  created
-                     :date-modified lastmod
-                     :hasSubDirs    (has-sub-dirs user abspath)
-                     :file-size     size)))
-          list-entries))))
+  (filterv
+    #(and (get-in %1 [:permissions :read])
+          (not (contains? filter-files (:id %1)))
+          (not (contains? filter-files (:label %1)))) 
+    (map
+      #(let [abspath (.getFormattedAbsolutePath %1)
+             label   (ft/basename abspath)
+             perms   (collection-perm-map user abspath)
+             created (str (long (.. %1 getCreatedAt getTime)))
+             lastmod (str (long (.. %1 getModifiedAt getTime)))
+             size    (str (.getDataSize %1))]
+         (assoc
+           {}
+           :id            abspath
+           :label         label
+           :permissions   perms
+           :date-created  created
+           :date-modified lastmod
+           :hasSubDirs    (has-sub-dirs user abspath)
+           :file-size     size))
+      list-entries)))
 
 (defn list-dir
   "A non-recursive listing of a directory. Contains entries for files.
@@ -141,15 +138,15 @@
   ([user path include-files filter-files]
      (log/warn (str "list-dir " user " " path))
      (with-jargon
-       (when (not (user-exists? user))
+       (when-not (user-exists? user)
          (throw+ {:error_code ERR_NOT_A_USER
                   :user user}))
        
-       (when (not (exists? path))
+       (when-not (exists? path)
          (throw+ {:error_code ERR_DOES_NOT_EXIST
                   :path path}))
        
-       (when (not (is-readable? user path))
+       (when-not (is-readable? user path)
          (throw+ {:error_code ERR_NOT_READABLE
                   :path path
                   :user user}))
@@ -157,10 +154,14 @@
        (let [fixed-path   (ft/rm-last-slash path)
              ff           (set filter-files)
              all-entries  (.listDataObjectsAndCollectionsUnderPath (:lister cm) fixed-path)
-             file-entries (filter #(.isDataObject %1) all-entries)
-             dir-entries  (filter #(.isCollection %1) all-entries)
-             files  (list-files user file-entries (ft/rm-last-slash path) ff)
-             dirs   (list-dirs user dir-entries (ft/rm-last-slash path) ff)
+             file-entries (filter 
+                            #(.isDataObject %1) 
+                            all-entries)
+             dir-entries  (filter 
+                            #(.isCollection %1) 
+                            all-entries)
+             files        (list-files user file-entries (ft/rm-last-slash path) ff)
+             dirs         (list-dirs user dir-entries (ft/rm-last-slash path) ff)
              add-files    #(if include-files
                              (assoc %1 :files files)
                              %1)]
@@ -168,7 +169,7 @@
              (assoc
                  :id path
                  :label         (ft/basename path)
-                 :hasSubDirs    (> (count dirs) 0)
+                 :hasSubDirs    (pos? (count dirs))
                  :date-created  (created-date path)
                  :date-modified (lastmod-date path)
                  :permissions   (collection-perm-map user path)
@@ -186,11 +187,11 @@
   [user path]
   (log/debug (str "create " user " " path))
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (collection-writeable? user (ft/dirname path)))
+    (when-not (collection-writeable? user (ft/dirname path))
       (throw+ {:path path
                :error_code ERR_NOT_WRITEABLE}))
     
@@ -231,7 +232,7 @@
                  :error_code ERR_NOT_WRITEABLE}))
       
       ;Make sure all of the paths are directories.
-      (when-not  (every? true? (mapv #(type-func? %) paths))
+      (when-not  (every? true? (mapv type-func? paths))
         (throw+ {:error_code type-error
                  :paths (filterv #(not (type-func? %)) paths)}))
       
@@ -258,44 +259,44 @@
   [user sources dest type-func? type-error]
   (with-jargon
     (let [path-list  (conj sources dest)
-          dest-paths (into [] (map #(ft/path-join dest (ft/basename %)) sources))
-          types?     (every? true? (map #(type-func? %) sources))]
-      (when (not (user-exists? user))
+          dest-paths (mapv #(ft/path-join dest (ft/basename %)) sources)
+          types?     (every? true? (map type-func? sources))]
+      (when-not (user-exists? user)
         (throw+ {:error_code ERR_NOT_A_USER
                  :user user}))
       
       ;Make sure that all source paths in the request actually exist.
-      (when (not (paths-exist? sources))
+      (when-not (paths-exist? sources)
         (throw+ {:error_code ERR_DOES_NOT_EXIST 
                  :paths (into [] (for [path sources :when (not (exists? path))] path))}))
       
       ;Make sure that the destination directory actually exists.
-      (when (not (exists? dest))
+      (when-not (exists? dest)
         (throw+ {:error_code ERR_DOES_NOT_EXIST  
                  :paths [dest]}))
       
       ;dest must be a directory.
-      (when (not (is-dir? dest))
+      (when-not (is-dir? dest)
         (throw+ {:error_code ERR_NOT_A_FOLDER
                  :path dest}))
       
       ;Make sure all the paths in the request are writeable.
-      (when (not (paths-writeable? user sources))
+      (when-not (paths-writeable? user sources)
         (throw+ {:error_code ERR_NOT_WRITEABLE
                  :paths (into [] (for [path sources :when (not (is-writeable? user path))] path))}))
       
       ;Make sure the destination directory is writeable.
-      (when (not (is-writeable? user dest))
+      (when-not (is-writeable? user dest)
         (throw+ {:error_code ERR_NOT_WRITEABLE
                  :path (ft/dirname dest)}))
       
       ;Make sure that the destination paths don't exist already.
-      (when (not (every? false? (map exists? dest-paths)))
+      (when-not (every? false? (map exists? dest-paths))
         (throw+ {:error_code ERR_EXISTS
                  :paths (into [] (filter (fn [p] (exists? p)) dest-paths))}))
       
       ;Make sure that everything in sources is the correct type.
-      (when (not types?)
+      (when-not types?
         (throw+ {:error_code type-error
                  :paths path-list}))
       
@@ -314,19 +315,19 @@
   "High-level file renaming. Calls rename-func, passing it file-rename as the mv-func param."
   [user source dest type-func? type-error]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (exists? source))
+    (when-not (exists? source)
       (throw+ {:path source
                :error_code ERR_DOES_NOT_EXIST}))
     
-    (when (not (is-writeable? user source))
+    (when-not (is-writeable? user source)
       (throw+ {:error_code ERR_NOT_WRITEABLE
                :path source}))
     
-    (when (not (type-func? source))
+    (when-not (type-func? source)
       (throw+ {:paths source
                :error_code type-error}))
     
@@ -335,7 +336,7 @@
                :path dest}))
     
     (let [result (move source dest)]
-      (when (not (nil? result))
+      (when-not (nil? result)
         (throw+ {:error_code ERR_INCOMPLETE_RENAME
                  :paths result
                  :user user}))
@@ -355,7 +356,7 @@
         buffsize (if (<= realsize size) realsize size)
         buff (char-array buffsize)]
     (read-file path buff)
-    (. (StringBuilder.) append buff)))
+    (.append (StringBuilder.) buff)))
 
 (defn preview
   "Grabs a preview of a file in iRODS.
@@ -367,26 +368,26 @@
   [user path size]
   (with-jargon
     (log/debug (str "preview " user " " path " " size))
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (exists? path))
+    (when-not (exists? path)
       (throw+ {:error_code ERR_DOES_NOT_EXIST
                :path path}))
     
-    (when (not (is-readable? user path))
+    (when-not (is-readable? user path)
       (throw+ {:path path
                :error_code ERR_NOT_READABLE}))
     
-    (when (not (is-file? path))
+    (when-not (is-file? path)
       (throw+ {:error_code ERR_NOT_A_FILE
                :path path 
                :user user}))
     
-    (if (= (file-size path) 0)
+    (if (zero? (file-size path))
       ""
-      (.toString (preview-buffer path size)))))
+      (str (preview-buffer path size)))))
 
 (defn user-home-dir
   [staging-dir user set-owner?]
@@ -398,7 +399,7 @@
     Returns:
       A string containing the absolute path of the user's home directory."
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
@@ -410,14 +411,14 @@
 (defn metadata-get
   [user path]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (exists? path))
+    (when-not (exists? path)
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
-    (when (not (is-readable? user path))
+    (when-not (is-readable? user path)
       (throw+ {:error_code ERR_NOT_READABLE}))
     
     (let [fix-unit #(if (= (:unit %1) IPCRESERVED) (assoc %1 :unit "") %1)
@@ -427,14 +428,14 @@
 (defn get-tree
   [user path]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (exists? path))
+    (when-not (exists? path)
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
-    (when (not (is-readable? user path))
+    (when-not (is-readable? user path)
       (throw+ {:error_code ERR_NOT_READABLE}))
     
     (let [value (:value (first (get-attribute path "tree-urls")))]
@@ -444,17 +445,17 @@
 (defn metadata-set
   [user path avu-map]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
     (when (= "failure" (:status avu-map))
       (throw+ {:error_code ERR_INVALID_JSON}))
     
-    (when (not (exists? path))
+    (when-not (exists? path)
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
-    (when (not (is-writeable? user path))
+    (when-not (is-writeable? user path)
       (throw+ {:error_code ERR_NOT_WRITEABLE}))
     
     (let [new-path (ft/rm-last-slash path)
@@ -480,14 +481,14 @@
 (defn metadata-batch-set
   [user path adds-dels]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (exists? path))
+    (when-not (exists? path)
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
-    (when (not (is-writeable? user path))
+    (when-not (is-writeable? user path)
       (throw+ {:error_code ERR_NOT_WRITEABLE}))
     
     (let [adds     (:add adds-dels)
@@ -509,14 +510,14 @@
 (defn set-tree
   [user path tree-urls]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (exists? path))
+    (when-not (exists? path)
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
-    (when (not (is-writeable? user path))
+    (when-not (is-writeable? user path)
       (throw+ {:error_code ERR_NOT_WRITEABLE}))
     
     (let [tree-urls (:tree-urls tree-urls)
@@ -530,14 +531,14 @@
 (defn metadata-delete
   [user path attr]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (exists? path))
+    (when-not (exists? path)
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
-    (when (not (is-writeable? user path))
+    (when-not (is-writeable? user path)
       (throw+ {:error_code ERR_NOT_WRITEABLE}))
     
     (workaround-delete path attr)
@@ -550,7 +551,7 @@
 
 (defn- format-tree-urls
   [treeurl-maps]
-  (if (> (count treeurl-maps) 0)
+  (if (pos? (count treeurl-maps))
     (json/read-json (:value (first (seq treeurl-maps))))
     []))
 
@@ -558,7 +559,7 @@
   [num-chars tail-str]
   (if (< (count tail-str) num-chars)
     tail-str
-    (. tail-str substring (- (count tail-str) num-chars))))
+    (.substring tail-str (- (count tail-str) num-chars))))
 
 (defn extension?
   [path ext]
@@ -569,17 +570,17 @@
 (defn manifest
   [user path data-threshold]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (exists? path))
+    (when-not (exists? path)
       (throw+ {:error_code ERR_DOES_NOT_EXIST}))
     
-    (when (not (is-file? path))
+    (when-not (is-file? path)
       (throw+ {:error_code ERR_NOT_A_FILE}))
     
-    (when (not (is-readable? user path))
+    (when-not (is-readable? user path)
       (throw+ {:error_code ERR_NOT_READABLE}))
     
     (let [manifest         {:action "manifest"
@@ -601,26 +602,26 @@
 (defn download-file
   [user file-path]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     
-    (when (not (exists? file-path))
+    (when-not (exists? file-path)
       (throw+ {:error_code ERR_DOES_NOT_EXIST
                :path file-path}))
     
-    (when (not (is-readable? user file-path))
+    (when-not (is-readable? user file-path)
       (throw+ {:error_code ERR_NOT_WRITEABLE 
                :path file-path}))
     
-    (if (= (file-size file-path) 0)
+    (if (zero? (file-size file-path))
       ""
       (input-stream file-path))))
 
 (defn download
   [user filepaths]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER}))
     
     (let [cart-key   (str (System/currentTimeMillis))
@@ -646,7 +647,7 @@
 (defn upload
   [user]
   (with-jargon
-    (when (not (user-exists? user))
+    (when-not (user-exists? user)
       (throw+ {:error_code ERR_NOT_A_USER}))
     
     (let [cart-key   (str (System/currentTimeMillis))
@@ -678,24 +679,21 @@
     
     (when-not (every? user-exists? share-withs)
       (throw+ {:error_code ERR_NOT_A_USER
-               :users (into []
-                           (filter
-                            #(not (user-exists? %1))
-                            share-withs))}))
+               :users (filterv
+                        #(not (user-exists? %1))
+                        share-withs)}))
     
     (when-not (every? exists? fpaths)
       (throw+ {:error_code ERR_DOES_NOT_EXIST
-               :paths (into []
-                           (filter
-                            #(not (exists? %1))
-                            fpaths))}))
+               :paths (filterv
+                        #(not (exists? %1))
+                        fpaths)}))
     
     (when-not (every? (partial owns? user) fpaths)
       (throw+ {:error_code ERR_NOT_OWNER
-               :paths (into []
-                            (filter
-                             (partial owns? user)
-                             fpaths))
+               :paths (filterv
+                        (partial owns? user)
+                        fpaths)
                :user user}))
 
     (doseq [share-with share-withs]
@@ -741,24 +739,21 @@
 
     (when-not (every? user-exists? unshare-withs)
       (throw+ {:error_code ERR_NOT_A_USER
-               :users (into []
-                            (filter
-                             #(not (user-exists? %1))
-                             unshare-withs))}))
+               :users (filterv
+                        #(not (user-exists? %1))
+                        unshare-withs)}))
 
     (when-not (every? exists? fpaths)
       (throw+ {:error_code ERR_DOES_NOT_EXIST
-               :paths (into []
-                            (filter
-                             #(not (exists? %1))
-                             fpaths))}))
+               :paths (filterv
+                        #(not (exists? %1))
+                        fpaths)}))
 
     (when-not (every? (partial owns? user) fpaths)
       (throw+ {:error_code ERR_NOT_OWNER
-               :path (into []
-                           (filter
-                            #(not (partial owns? user)))
-                           fpaths)
+               :path (filterv
+                       #(not (partial owns? user))
+                       fpaths)
                :user user}))
 
     (doseq [unshare-with unshare-withs]

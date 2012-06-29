@@ -32,7 +32,8 @@
   (filter (comp not nil?)
           (for [[field-name validator?] map-spec]
             (if (contains? a-map field-name)
-              (if (validator? (get a-map field-name)) nil field-name)
+              (when-not (validator? (get a-map field-name)) 
+                field-name)
               field-name))))
 
 (defn map-is-valid?
@@ -40,7 +41,7 @@
   [a-map map-spec]
   (log/debug (str "map-is-valid? " a-map " " map-spec))
   (if (map? a-map)
-    (== 0 (count (invalid-fields a-map map-spec)))
+    (zero? (count (invalid-fields a-map map-spec)))
     false))
 
 (defn parse-json
@@ -102,7 +103,7 @@
   ([results] (create-response results "text/plain"))
   ([results content-type]
     (log/debug (str "create-response " results))
-    (let [status (if (not (is-failed? results)) 200 400)
+    (let [status (if-not (is-failed? results) 200 400)
           body (json/json-str results)
           retval (merge
                    (rsp-utils/content-type (rsp-utils/response "") content-type)
@@ -124,10 +125,10 @@
 
 (defn bad-body 
   [request body-spec]
-  (when (not (map? (:body request)))
+  (when-not (map? (:body request))
     (throw+ {:error_code ERR_INVALID_JSON}))
   
-  (when (not (map-is-valid? (:body request) body-spec))
+  (when-not (map-is-valid? (:body request) body-spec)
     (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
              :fields (invalid-fields  (:body request) body-spec)}))
   
@@ -150,7 +151,7 @@
 
 (defn attachment?
   [request]
-  (if (not (query-param? request "attachment"))
+  (if-not (query-param? request "attachment")
     true
     (let [disp (query-param request "attachment")]
       (if (= "1" disp)
