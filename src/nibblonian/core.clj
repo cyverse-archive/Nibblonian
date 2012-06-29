@@ -146,9 +146,17 @@
   [args]
   (cli/cli
    args
-    ["-c" "--config" "Set the local config file to read from. Bypasses Zookeeper" :default nil]
-    ["-h" "--help" "Show help." :default false :flag true]
-    ["-p" "--port" "Set the port to listen on." :default 31370 :parse-fn #(Integer. %)]))
+    ["-c" "--config" 
+     "Set the local config file to read from. Bypasses Zookeeper" 
+     :default nil]
+    ["-h" "--help" 
+     "Show help." 
+     :default false 
+     :flag true]
+    ["-p" "--port" 
+     "Set the port to listen on." 
+     :default 31370 
+     :parse-fn #(Integer. %)]))
 
 (def app
   (site-handler nibblonian-routes))
