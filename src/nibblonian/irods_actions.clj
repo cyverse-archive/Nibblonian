@@ -17,20 +17,21 @@
   [user dirpath filter-files]
   (let [fs (:fileSystemAO cm)
         ff (set filter-files)]
-    (filterv #(and (not (contains? ff %1)) 
-                   (not (contains? ff (ft/basename %1)))
-                   (is-readable? user %1)) 
-             (map
-               #(ft/path-join dirpath %) 
-               (.getListInDir fs (file dirpath))))))
+    (filterv 
+      #(and (not (contains? ff %1)) 
+            (not (contains? ff (ft/basename %1)))
+            (is-readable? user %1)) 
+      (map
+        #(ft/path-join dirpath %) 
+        (.getListInDir fs (file dirpath))))))
 
 (defn- list-perm
   [user abspath]
   {:path abspath
    :user-permissions (filter
-                 #(not (or (= (:user %1) user)
-                           (= (:user %1) @username)))
-                 (list-user-perms abspath))})
+                       #(not (or (= (:user %1) user)
+                                 (= (:user %1) @username)))
+                       (list-user-perms abspath))})
 
 (defn list-perms
   [user abspaths]
@@ -167,13 +168,13 @@
                              %1)]
          (-> {}
              (assoc
-                 :id path
-                 :label         (ft/basename path)
-                 :hasSubDirs    (pos? (count dirs))
-                 :date-created  (created-date path)
-                 :date-modified (lastmod-date path)
-                 :permissions   (collection-perm-map user path)
-                 :folders       dirs)
+               :id path
+               :label         (ft/basename path)
+               :hasSubDirs    (pos? (count dirs))
+               :date-created  (created-date path)
+               :date-modified (lastmod-date path)
+               :permissions   (collection-perm-map user path)
+               :folders       dirs)
              add-files)))))
 
 (defn create
@@ -354,7 +355,7 @@
   [path size]
   (let [realsize (file-size path)
         buffsize (if (<= realsize size) realsize size)
-        buff (char-array buffsize)]
+        buff     (char-array buffsize)]
     (read-file path buff)
     (.append (StringBuilder.) buff)))
 
@@ -422,7 +423,7 @@
       (throw+ {:error_code ERR_NOT_READABLE}))
     
     (let [fix-unit #(if (= (:unit %1) IPCRESERVED) (assoc %1 :unit "") %1)
-          avu (map fix-unit (get-metadata (ft/rm-last-slash path)))]
+          avu      (map fix-unit (get-metadata (ft/rm-last-slash path)))]
       {:metadata avu})))
 
 (defn get-tree
@@ -503,7 +504,9 @@
       (doseq [avu adds]
         (let [new-attr (:attr avu)
               new-val  (:value avu)
-              new-unit (if (string/blank? (:unit avu)) IPCRESERVED (:unit avu))]
+              new-unit (if (string/blank? (:unit avu)) 
+                         IPCRESERVED 
+                         (:unit avu))]
           (set-metadata new-path new-attr new-val new-unit)))
       {:path (ft/rm-last-slash path) :user user})))
 
@@ -584,10 +587,17 @@
       (throw+ {:error_code ERR_NOT_READABLE}))
     
     (let [manifest         {:action "manifest"
-                            :tree-urls (format-tree-urls (get-attribute path "tree-urls"))}
+                            :tree-urls (format-tree-urls 
+                                         (get-attribute path "tree-urls"))}
           file-size        (file-size path)
-          preview-path     (str "file/preview?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path))
-          rawcontents-path (str "display-download?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path))
+          preview-path     (str "file/preview?user=" 
+                                (cdc/url-encode user) 
+                                "&path=" 
+                                (cdc/url-encode path))
+          rawcontents-path (str "display-download?user=" 
+                                (cdc/url-encode user) 
+                                "&path=" 
+                                (cdc/url-encode path))
           rc-no-disp       (str rawcontents-path "&attachment=0")]
       (cond
         (extension? path ".png")
@@ -711,7 +721,10 @@
                 (set-permissions share-with dir-path true curr-write curr-own)
                 (recur (ft/dirname dir-path)))))
           
-          (set-permissions share-with fpath read-perm write-perm own-perm true))))
+          (set-permissions share-with fpath read-perm write-perm own-perm true)
+          
+          (when (is-dir? fpath)
+            (.setAccessPermissionInherit (:collectionAO cm) @zone fpath true)))))
     
     {:user share-withs
      :path fpaths
