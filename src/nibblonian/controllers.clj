@@ -49,7 +49,7 @@
 
 (defn init []
   (let [tmp-props (prps/parse-properties "zkhosts.properties")
-        zkurl (get tmp-props "zookeeper")]
+        zkurl     (get tmp-props "zookeeper")]
     (cl/with-zk
       zkurl
       (when-not (cl/can-run?)
@@ -159,10 +159,10 @@
     (not (query-param? request "path")) 
     (let [user       (query-param request "user")
           inc-files  (include-files? request)
-          comm-f  (future (gen-comm-data user inc-files))
-          share-f (future (gen-sharing-data user inc-files))
-          home-f  (future (dir-list user (get-home-dir user) inc-files))]
-      {:roots [@home-f @comm-f @share-f]})
+          comm-f     (gen-comm-data user inc-files)
+          share-f    (gen-sharing-data user inc-files)
+          home-f     (dir-list user (get-home-dir user) inc-files)]
+      {:roots [home-f comm-f share-f]})
     
     :else
     ;;; There's a path parameter, so simply list the directory.  
@@ -187,18 +187,19 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when-not (valid-body? request {:source string? :dest string?})
-    (bad-body request {:source string? :dest string?})) 
+  (when-not (valid-body? request {:source string? 
+                                  :dest string?})
+    (bad-body request {:source string? 
+                       :dest string?})) 
   
   (let [body-json (:body request)
-        user (query-param request "user")
-        dest (:dest body-json)
-        source (:source body-json)]
+        user      (query-param request "user")
+        dest      (:dest body-json)
+        source    (:source body-json)]
     (log/info (str "Body: " (json/json-str body-json)))
     (when (super-user? user)
       (throw+ {:error_code ERR_NOT_AUTHORIZED           
                :user user}))
-    
     (rename-func user source dest)))
 
 (defn do-delete
@@ -220,8 +221,8 @@
     (bad-body request {:paths sequential?})) 
   
   (let [body-json (:body request)
-        user (query-param request "user")
-        paths (:paths body-json)]
+        user      (query-param request "user")
+        paths     (:paths body-json)]
     (log/info (str "Body: " (json/json-str body-json)))
     (when (super-user? user)
       (throw+ {:error_code ERR_NOT_AUTHORIZED
@@ -244,13 +245,15 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when-not (valid-body? request {:sources sequential? :dest string?})
-    (bad-body request {:sources sequential? :dest string?}))
+  (let [check-map {:sources sequential? 
+                   :dest string?}] 
+    (when-not (valid-body? request check-map)
+      (bad-body request check-map)))
   
   (let [body-json (:body request)
-        user (query-param request "user")
-        sources (:sources body-json)
-        dest (:dest body-json)]
+        user      (query-param request "user")
+        sources   (:sources body-json)
+        dest      (:dest body-json)]
     (log/info (str "Body: " (json/json-str body-json)))
     (when (super-user? user)
       (throw+ {:error_code ERR_NOT_AUTHORIZED
@@ -275,8 +278,8 @@
     (bad-body request {:path string?})) 
   
   (let [body-json (:body request)
-        user (query-param request "user")
-        path (:path body-json)]
+        user      (query-param request "user")
+        path      (:path body-json)]
     (log/info (str "Body: " body-json))
     (when (super-user? user)
       (throw+ {:error_code ERR_NOT_AUTHORIZED
@@ -318,8 +321,11 @@
   (when-not (query-param? request "path") 
     (bad-query "path"))
   
-  (when-not (valid-body? request {:attr string? :value string? :unit string?})
-    (bad-body request {:attr string? :value string? :unit string?}))
+  (let [check-map {:attr string? 
+                   :value string? 
+                   :unit string?}] 
+    (when-not (valid-body? request check-map)
+      (bad-body request check-map)))
   
   (let [user (query-param request "user")
         path (query-param request "path")
@@ -340,8 +346,11 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (when-not (valid-body? request {:paths sequential? :users sequential? :permissions map?})
-    (bad-body request {:paths sequential? :users sequential? :permissions map?}))
+  (let [check-map {:paths sequential? 
+                   :users sequential? 
+                   :permissions map?}] 
+    (when-not (valid-body? request check-map)
+      (bad-body request check-map)))
   
   (let [user        (fix-username (query-param request "user"))
         share-withs (map fix-username (get-in request [:body :users]))
@@ -368,8 +377,10 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
 
-  (when-not (valid-body? request {:paths sequential? :users sequential?})
-    (bad-body request {:paths sequential? :users sequential?}))
+  (let [check-map {:paths sequential? 
+                   :users sequential?}] 
+    (when-not (valid-body? request check-map)
+      (bad-body request check-map)))
 
   (let [user        (fix-username (query-param request "user"))
         share-withs (map fix-username (get-in request [:body :users]))
@@ -485,7 +496,10 @@
     (bad-body request {:paths vector?}))
   
   (let [paths (:paths (:body request))]
-    {:paths  (apply conj {} (map (fn [p] {p (irods-actions/path-exists? p)}) paths))}))
+    {:paths  (apply conj {} 
+                    (map
+                      #({%1 (irods-actions/path-exists? %1)})
+                      paths))}))
 
 (defn do-manifest
   "Returns a manifest consisting of preview and rawcontent fields for a file."
@@ -580,6 +594,6 @@
   (when-not (valid-body? request {:paths sequential?})
     (bad-body request {:paths sequential?}))
 
-  (let [user (query-param request "user")
+  (let [user  (query-param request "user")
         paths (get-in request [:body :paths])]
     {:paths (irods-actions/list-perms user paths)}))
