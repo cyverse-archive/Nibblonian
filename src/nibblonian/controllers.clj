@@ -496,10 +496,9 @@
     (bad-body request {:paths vector?}))
   
   (let [paths (:paths (:body request))]
-    {:paths  (apply conj {} 
-                    (map
-                      #({%1 (irods-actions/path-exists? %1)})
-                      paths))}))
+    {:paths  (apply conj {} (map 
+                              #(hash-map %1 (irods-actions/path-exists? %1)) 
+                              paths))}))
 
 (defn do-manifest
   "Returns a manifest consisting of preview and rawcontent fields for a file."
