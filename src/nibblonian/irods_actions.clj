@@ -712,6 +712,10 @@
               write-perm (:write perms)
               own-perm   (:own perms)
               base-dir   (ft/path-join "/" @zone)]
+          
+          ;;Parent directories need to be readable, otherwise
+          ;;files and directories that are shared will be
+          ;;orphaned in the UI.
           (loop [dir-path (ft/dirname fpath)]
             (when-not (= dir-path base-dir)
               (let [curr-perms (permissions share-with dir-path)
@@ -721,8 +725,12 @@
                 (set-permissions share-with dir-path true curr-write curr-own)
                 (recur (ft/dirname dir-path)))))
           
+          ;;Set the actual permissions on the file/directory.
           (set-permissions share-with fpath read-perm write-perm own-perm true)
           
+          ;;If the shared item is a directory, then it needs the inheritance 
+          ;;bit set. Otherwise, any files that are added to the directory will
+          ;;not be shared.
           (when (is-dir? fpath)
             (.setAccessPermissionInherit (:collectionAO cm) @zone fpath true)))))
     
