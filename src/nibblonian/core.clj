@@ -31,7 +31,10 @@
   
   (POST "/exists" request
         (trap "exists" do-exists request))
-  
+
+  (POST "/stat" request
+        (trap "stat" do-stat request))
+
   (POST "/download" request
         (trap "download" do-download request))
   

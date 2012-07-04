@@ -552,6 +552,10 @@
   [path]
   (with-jargon (exists? path)))
 
+(defn path-stat
+  [path]
+  (with-jargon (stat path)))
+
 (defn- format-tree-urls
   [treeurl-maps]
   (if (pos? (count treeurl-maps))

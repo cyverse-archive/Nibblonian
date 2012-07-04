@@ -500,6 +500,19 @@
                               #(hash-map %1 (irods-actions/path-exists? %1)) 
                               paths))}))
 
+(defn do-stat
+  "Returns data object status information for one or more paths."
+  [request]
+  (log/debug "do-stat")
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:paths vector?})
+    (bad-body request {:paths vector?}))
+
+  (let [paths (:paths (:body request))]
+    {:paths (into {} (map #(vector % (irods-actions/path-stat %)) paths))}))
+
 (defn do-manifest
   "Returns a manifest consisting of preview and rawcontent fields for a file."
   [request]
