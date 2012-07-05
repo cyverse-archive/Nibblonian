@@ -517,17 +517,11 @@ Response:
 
     {
         "action":"manifest",
-        "rawcontents":"file\/download?user=johnw&path=\/iplant\/home\/johnw\/LICENSE.txt"
+        "status" : "success",
+        "content-type" : "text/plain",
+        "preview":"file\/preview?user=johnw&path=\/iplant\/home\/johnw\/LICENSE.txt",
+        "tree-urls" : []
     }
-
-OR
-
-    {
-        "action":"manifest",
-        "preview":"file\/preview?user=johnw&path=\/iplant\/home\/johnw\/LICENSE.txt"
-    }
-
-If the raw content is too large a preview will be sent instead. Additionally, if the file's name ends with .png, then the field containing the URL path to the download will be called "png". If the file's name ends with ".pdf", then the field will be named "pdf". Additionally, if the file is a PDF, then the query parameter "attachment=0" is added to the download path, which allows browsers to use their default PDF viewer, if they have one.
 
 
 File/Directory existence
