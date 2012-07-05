@@ -594,7 +594,11 @@
     {:action "manifest"
      :content-type (.detect (Tika.) (input-stream path))
      :tree-urls (format-tree-urls 
-                  (get-attribute path "tree-urls"))}))
+                  (get-attribute path "tree-urls"))
+     :preview (str "file/preview?user=" 
+                   (cdc/url-encode user) 
+                   "&path=" 
+                   (cdc/url-encode path))}))
 
 (defn download-file
   [user file-path]
