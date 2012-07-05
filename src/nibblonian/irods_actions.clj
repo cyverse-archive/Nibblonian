@@ -9,7 +9,8 @@
             [clojure.string :as string])
   (:use [clj-jargon.jargon]
         [clojure-commons.error-codes]
-        [slingshot.slingshot :only [try+ throw+]]))
+        [slingshot.slingshot :only [try+ throw+]])
+  (:import [org.apache.tika Tika]))
 
 (def IPCRESERVED "ipc-reserved-unit")
 
@@ -590,28 +591,10 @@
     (when-not (is-readable? user path)
       (throw+ {:error_code ERR_NOT_READABLE}))
     
-    (let [manifest         {:action "manifest"
-                            :tree-urls (format-tree-urls 
-                                         (get-attribute path "tree-urls"))}
-          file-size        (file-size path)
-          preview-path     (str "file/preview?user=" 
-                                (cdc/url-encode user) 
-                                "&path=" 
-                                (cdc/url-encode path))
-          rawcontents-path (str "display-download?user=" 
-                                (cdc/url-encode user) 
-                                "&path=" 
-                                (cdc/url-encode path))
-          rc-no-disp       (str rawcontents-path "&attachment=0")]
-      (cond
-        (extension? path ".png")
-        (merge manifest {:png rawcontents-path})
-        
-        (extension? path ".pdf")
-        (merge manifest {:pdf rc-no-disp})
-        
-        :else
-        (merge manifest {:preview preview-path})))))
+    {:action "manifest"
+     :content-type (.detect (Tika.) (input-stream path))
+     :tree-urls (format-tree-urls 
+                  (get-attribute path "tree-urls"))}))
 
 (defn download-file
   [user file-path]

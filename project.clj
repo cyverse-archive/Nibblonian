@@ -13,7 +13,8 @@
                  [ring/ring-devel "1.0.1"]
                  [slingshot "0.10.1"]
                  [log4j/log4j "1.2.16"]
-                 [swank-clojure "1.3.1"]]
+                 [swank-clojure "1.3.1"]
+                 [org.apache.tika/tika-core "1.1"]]
   :ring {:init nibblonian.controllers/init,
          :handler nibblonian.core/app}
   :profiles {:dev
