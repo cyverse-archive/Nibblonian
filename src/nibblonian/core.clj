@@ -134,6 +134,9 @@
   (POST "/user-permissions" request
        (trap "user-permissions" do-user-permissions request))
   
+  (GET "/quota" request
+       (trap "quota-list" do-quota request))
+  
   (route/not-found "Not Found!"))
 
 (defn site-handler [routes]

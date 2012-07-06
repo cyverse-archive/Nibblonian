@@ -609,3 +609,15 @@
   (let [user  (query-param request "user")
         paths (get-in request [:body :paths])]
     {:paths (irods-actions/list-perms user paths)}))
+
+(defn do-quota
+  "Handles returning a list of objects representing
+   all of the quotas that a user has."
+  [request]
+  (log/debug "do-quota")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (let [user (query-param request "user")]
+    {:quotas (irods-actions/get-quota user)}))

@@ -793,3 +793,11 @@
     
     (let [sharing-data (list-dir user (ft/rm-last-slash root-dir) inc-files filter-files)]
       (assoc sharing-data :label "Shared"))))
+
+(defn get-quota
+  [user]
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    (quota user)))
