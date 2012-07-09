@@ -29,7 +29,7 @@
 (def ssl-context
   (let [context (SSLContext/getInstance "SSL")]
     (do
-      (. context init nil (into-array TrustManager [trust-manager]) (SecureRandom.))
+      (.init context nil (into-array TrustManager [trust-manager]) (SecureRandom.))
       context)))
 
 (defn- get-connection
@@ -41,9 +41,9 @@
         orig-hostname-verifier (HttpsURLConnection/getDefaultHostnameVerifier)]
     (try
       (do
-        (HttpsURLConnection/setDefaultSSLSocketFactory (. ssl-context getSocketFactory))
+        (HttpsURLConnection/setDefaultSSLSocketFactory (.getSocketFactory ssl-context ))
         (HttpsURLConnection/setDefaultHostnameVerifier hostname-verifier)
-        (. url openConnection))
+        (.openConnection url))
       (catch GeneralSecurityException e
         (throw IOException "Unable to establish trusting SSL connection." e))
       (finally
@@ -53,4 +53,4 @@
 
 (defn input-stream [url-string]
   (let [url (URL. url-string)]
-    (. (get-connection url) getInputStream)))
+    (.getInputStream (get-connection url))))

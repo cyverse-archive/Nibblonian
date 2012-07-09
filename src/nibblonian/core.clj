@@ -31,7 +31,10 @@
   
   (POST "/exists" request
         (trap "exists" do-exists request))
-  
+
+  (POST "/stat" request
+        (trap "stat" do-stat request))
+
   (POST "/download" request
         (trap "download" do-download request))
   
@@ -131,6 +134,9 @@
   (POST "/user-permissions" request
        (trap "user-permissions" do-user-permissions request))
   
+  (GET "/quota" request
+       (trap "quota-list" do-quota request))
+  
   (route/not-found "Not Found!"))
 
 (defn site-handler [routes]
@@ -146,9 +152,17 @@
   [args]
   (cli/cli
    args
-    ["-c" "--config" "Set the local config file to read from. Bypasses Zookeeper" :default nil]
-    ["-h" "--help" "Show help." :default false :flag true]
-    ["-p" "--port" "Set the port to listen on." :default 31370 :parse-fn #(Integer. %)]))
+    ["-c" "--config" 
+     "Set the local config file to read from. Bypasses Zookeeper" 
+     :default nil]
+    ["-h" "--help" 
+     "Show help." 
+     :default false 
+     :flag true]
+    ["-p" "--port" 
+     "Set the port to listen on." 
+     :default 31370 
+     :parse-fn #(Integer. %)]))
 
 (def app
   (site-handler nibblonian-routes))
