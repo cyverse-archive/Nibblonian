@@ -1,4 +1,4 @@
-(defproject nibblonian/nibblonian "0.0.5-SNAPSHOT"
+(defproject nibblonian/nibblonian "0.2.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [org.clojure/java.jdbc "0.1.0"]
                  [org.clojure/data.json "0.1.1"]
