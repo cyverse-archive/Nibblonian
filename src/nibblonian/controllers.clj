@@ -159,10 +159,10 @@
     (not (query-param? request "path")) 
     (let [user       (query-param request "user")
           inc-files  (include-files? request)
-          comm-f     (gen-comm-data user inc-files)
-          share-f    (gen-sharing-data user inc-files)
-          home-f     (dir-list user (get-home-dir user) inc-files)]
-      {:roots [home-f comm-f share-f]})
+          comm-f     (future (gen-comm-data user inc-files))
+          share-f    (future (gen-sharing-data user inc-files))
+          home-f     (future (dir-list user (get-home-dir user) inc-files))]
+      {:roots [@home-f @comm-f @share-f]})
     
     :else
     ;;; There's a path parameter, so simply list the directory.  
@@ -460,7 +460,6 @@
         path (query-param request "path")
         attr (query-param request "attr")]
     (irods-actions/metadata-delete user path attr)))
-
 
 (defn do-preview
   "Handles a file preview.

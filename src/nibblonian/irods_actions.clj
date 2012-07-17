@@ -85,7 +85,8 @@
 
 (defn has-sub-dirs
   [user abspath]
-  (let [lister (:lister cm)
+  true
+  #_(let [lister (:lister cm)
         list-entries (.listCollectionsUnderPath lister abspath 0)]
     (pos? 
       (count
@@ -95,29 +96,30 @@
             #(collection-perm-map user (.getFormattedAbsolutePath %1)) 
             list-entries))))))
 
+(defn dir-map-entry
+  [user list-entry]
+  (let [abspath (.getFormattedAbsolutePath list-entry)
+        label   (ft/basename abspath)
+        perms   (collection-perm-map user abspath)
+        created (str (long (.. list-entry getCreatedAt getTime)))
+        lastmod (str (long (.. list-entry getModifiedAt getTime)))
+        size    (str (.getDataSize list-entry))]
+    (hash-map
+      :id            abspath
+      :label         label
+      :permissions   perms
+      :date-created  created
+      :date-modified lastmod
+      :hasSubDirs    true
+      :file-size     size)))
+
 (defn list-dirs
   [user list-entries dirpath filter-files]
   (filterv
     #(and (get-in %1 [:permissions :read])
           (not (contains? filter-files (:id %1)))
           (not (contains? filter-files (:label %1)))) 
-    (map
-      #(let [abspath (.getFormattedAbsolutePath %1)
-             label   (ft/basename abspath)
-             perms   (collection-perm-map user abspath)
-             created (str (long (.. %1 getCreatedAt getTime)))
-             lastmod (str (long (.. %1 getModifiedAt getTime)))
-             size    (str (.getDataSize %1))]
-         (assoc
-           {}
-           :id            abspath
-           :label         label
-           :permissions   perms
-           :date-created  created
-           :date-modified lastmod
-           :hasSubDirs    (has-sub-dirs user abspath)
-           :file-size     size))
-      list-entries)))
+    (map #(dir-map-entry user %) list-entries)))
 
 (defn list-dir
   "A non-recursive listing of a directory. Contains entries for files.
@@ -555,7 +557,11 @@
 
 (defn path-stat
   [path]
-  (with-jargon (stat path)))
+  (with-jargon
+    (when-not (exists? path)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :path path}))
+    (stat path)))
 
 (defn- format-tree-urls
   [treeurl-maps]
