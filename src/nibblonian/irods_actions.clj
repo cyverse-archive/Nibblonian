@@ -22,17 +22,61 @@
   (let [ff (set filter-files)]
     (into [] (filter #(not (contains? ff (:label %))) files))))
 
-(defn file-list
-  [user files filter-files]
-  (into [] (-> (map #(sub-file-maps user %) files)
-             filter-unreadable
-             (filter-labels filter-files))))
+(defn list-files
+  [user list-entries dirpath filter-files]
+  (into 
+    [] 
+    (filter
+      #(and (get-in %1 [:permissions :read]) 
+            (not (contains? filter-files (:id %1)))
+            (not (contains? filter-files (:label %1)))) 
+      (map
+        #(let [abspath (.getFormattedAbsolutePath %1)
+               label   (ft/basename abspath)
+               perms   (dataobject-perm-map user abspath)
+               created (str (long (.. %1 getCreatedAt getTime)))
+               lastmod (str (long (.. %1 getModifiedAt getTime)))
+               size    (str (.getDataSize %1))]
+           (assoc 
+             {}
+             :id            abspath
+             :label         label
+             :permissions   perms
+             :date-created  created
+             :date-modified lastmod
+             :file-size     size)) 
+        list-entries))))
 
-(defn dir-list
-  [user dirs filter-files]
-  (into [] (-> (map #(sub-dir-maps user %) dirs)
-             filter-unreadable
-             (filter-labels filter-files))))
+(defn has-sub-dirs
+  [user abspath]
+  true)
+
+(defn dir-map-entry
+  [user list-entry]
+  (let [abspath (.getFormattedAbsolutePath list-entry)
+        label   (ft/basename abspath)
+        perms   (collection-perm-map user abspath)
+        created (str (long (.. list-entry getCreatedAt getTime)))
+        lastmod (str (long (.. list-entry getModifiedAt getTime)))
+        size    (str (.getDataSize list-entry))]
+    (hash-map
+      :id            abspath
+      :label         label
+      :permissions   perms
+      :date-created  created
+      :date-modified lastmod
+      :hasSubDirs    true
+      :file-size     size)))
+
+(defn list-dirs
+  [user list-entries dirpath filter-files]
+  (into 
+    [] 
+    (filter
+      #(and (get-in %1 [:permissions :read])
+            (not (contains? filter-files (:id %1)))
+            (not (contains? filter-files (:label %1)))) 
+      (map #(dir-map-entry user %) list-entries))))
 
 (defn list-dir
   "A non-recursive listing of a directory. Contains entries for files.
@@ -51,43 +95,47 @@
      A tree of maps as described above."
   ([user path filter-files]
      (list-dir user path true filter-files))
-  
+
   ([user path include-files filter-files]
-     (log/debug (str "list-dir " user " " path))
+     (log/warn (str "list-dir " user " " path))
      (with-jargon
-       (when (not (user-exists? user))
+       (when-not (user-exists? user)
          (throw+ {:error_code ERR_NOT_A_USER
                   :user user}))
        
-       (when (not (exists? path))
+       (when-not (exists? path)
          (throw+ {:error_code ERR_DOES_NOT_EXIST
                   :path path}))
        
-       (when (not (is-readable? user path))
+       (when-not (is-readable? user path)
          (throw+ {:error_code ERR_NOT_READABLE
                   :path path
                   :user user}))
        
-       (let [data   (list-all (ft/rm-last-slash path))
-             groups (group-by (fn [datum] (. datum isCollection)) data)
-             files  (get groups false)
-             dirs   (get groups true)]
-         (if include-files
-           {:id path
-            :label         (ft/basename path)
-            :hasSubDirs    (> (count dirs) 0)
-            :date-created  (created-date path)
-            :date-modified (lastmod-date path)
-            :permissions   (collection-perm-map user path)
-            :files         (file-list user files filter-files) 
-            :folders       (dir-list user dirs filter-files)}
-           {:id path
-            :date-created  (created-date path)
-            :date-modified (lastmod-date path)
-            :permissions   (collection-perm-map user path)
-            :hasSubDirs    (> (count dirs) 0)
-            :label         (ft/basename path)
-            :folders       (dir-list user dirs filter-files)})))))
+       (let [fixed-path   (ft/rm-last-slash path)
+             ff           (set filter-files)
+             all-entries  (.listDataObjectsAndCollectionsUnderPath (:lister cm) fixed-path)
+             file-entries (filter 
+                            #(.isDataObject %1) 
+                            all-entries)
+             dir-entries  (filter 
+                            #(.isCollection %1) 
+                            all-entries)
+             files        (list-files user file-entries (ft/rm-last-slash path) ff)
+             dirs         (list-dirs user dir-entries (ft/rm-last-slash path) ff)
+             add-files    #(if include-files
+                             (assoc %1 :files files)
+                             %1)]
+         (-> {}
+             (assoc
+               :id path
+               :label         (ft/basename path)
+               :hasSubDirs    (pos? (count dirs))
+               :date-created  (created-date path)
+               :date-modified (lastmod-date path)
+               :permissions   (collection-perm-map user path)
+               :folders       dirs)
+             add-files)))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.

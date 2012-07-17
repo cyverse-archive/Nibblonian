@@ -123,9 +123,9 @@
     (not (query-param? request "path")) 
     (let [user      (query-param request "user")
           inc-files (include-files? request)
-          comm-data (gen-comm-data user inc-files)
-          home-data (dir-list user (get-home-dir user) inc-files)]
-      {:roots [home-data comm-data]})
+          comm-data (future (gen-comm-data user inc-files))
+          home-data (future (dir-list user (get-home-dir user) inc-files))]
+      {:roots [@home-data @comm-data]})
     
     :else
     ;;; There's a path parameter, so simply list the directory.  
