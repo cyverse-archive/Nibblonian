@@ -103,7 +103,7 @@
       :id            abspath
       :label         label
       :permissions   (perm-vec->map user (.getOwnerName stat) list-entry)
-      :hasSubDir     true
+      :hasSubDirs     true
       :date-created  (str (long (.. stat getCreatedAt getTime)))
       :date-modified (str (long (.. stat getModifiedAt getTime)))
       :file-size     (str (.getObjSize stat)))))
