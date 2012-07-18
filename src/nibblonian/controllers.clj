@@ -171,6 +171,17 @@
           inc-files (include-files? request)]
       (dir-list user path inc-files))))
 
+(defn do-root-listing
+  [request]
+  (log/debug "do-root-listing")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (let [user (query-param request "user")] 
+    {:roots [(irods-actions/root-listing user (get-home-dir user))
+             (irods-actions/root-listing user (community-data) "Community Data")]}))
+
 (defn do-rename
   "Performs a rename.
 

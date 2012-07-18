@@ -85,41 +85,73 @@
 
 (defn has-sub-dirs
   [user abspath]
-  true
-  #_(let [lister (:lister cm)
-        list-entries (.listCollectionsUnderPath lister abspath 0)]
-    (pos? 
-      (count
-        (filter 
-          #(= (:read %1) true) 
-          (map 
-            #(collection-perm-map user (.getFormattedAbsolutePath %1)) 
-            list-entries))))))
+  true)
 
-(defn dir-map-entry
+(defn perm-vec->map
+  [user owner list-entry]
+  (hash-map
+    :read  (.canRead list-entry)
+    :write (.canWrite list-entry)
+    :own   (= user owner)))
+
+(defn obj-map-entry
   [user list-entry]
-  (let [abspath (.getFormattedAbsolutePath list-entry)
-        label   (ft/basename abspath)
-        perms   (collection-perm-map user abspath)
-        created (str (long (.. list-entry getCreatedAt getTime)))
-        lastmod (str (long (.. list-entry getModifiedAt getTime)))
-        size    (str (.getDataSize list-entry))]
-    (hash-map
+  (let [abspath (.getAbsolutePath list-entry)
+        stat    (.initializeObjStatForFile list-entry)
+        label   (ft/basename abspath)] 
+    (hash-map      
       :id            abspath
       :label         label
-      :permissions   perms
-      :date-created  created
-      :date-modified lastmod
-      :hasSubDirs    true
-      :file-size     size)))
+      :permissions   (perm-vec->map user (.getOwnerName stat) list-entry)
+      :hasSubDir     true
+      :date-created  (str (long (.. stat getCreatedAt getTime)))
+      :date-modified (str (long (.. stat getModifiedAt getTime)))
+      :file-size     (str (.getObjSize stat)))))
 
 (defn list-dirs
   [user list-entries dirpath filter-files]
   (filterv
     #(and (get-in %1 [:permissions :read])
           (not (contains? filter-files (:id %1)))
+          (not (contains? filter-files (:label %1))))
+    (map #(obj-map-entry user %) list-entries)))
+
+(defn list-files
+  [user list-entries dirpath filter-files]
+  (filterv
+    #(and (get-in %1 [:permissions :read]) 
+          (not (contains? filter-files (:id %1)))
           (not (contains? filter-files (:label %1)))) 
-    (map #(dir-map-entry user %) list-entries)))
+    (map
+      #(let [abspath (.getAbsolutePath %1)
+             stat    (.initializeObjStatForFile %1)
+             label   (ft/basename abspath)
+             perms   (perm-vec->map user (.getOwnerName stat) %1)
+             created (str (long (.. stat getCreatedAt getTime)))
+             lastmod (str (long (.. stat getModifiedAt getTime)))
+             size    (str (.getObjSize stat))]
+         (hash-map
+           :id            abspath
+           :label         label
+           :permissions   perms
+           :date-created  created
+           :date-modified lastmod
+           :file-size     size)) 
+      list-entries)))
+
+(defn list-in-dir
+  [fixed-path]
+  (let [ffilter (proxy [java.io.FileFilter] [] (accept [stuff] true))] 
+    (.getListInDirWithFileFilter 
+      (:fileSystemAO cm) 
+      (file fixed-path) 
+      ffilter)))
+
+(defn partition-files-folders
+  [fixed-path]
+  (group-by 
+    #(.isDirectory %1)
+    (list-in-dir fixed-path)))
 
 (defn list-dir
   "A non-recursive listing of a directory. Contains entries for files.
@@ -157,28 +189,51 @@
        
        (let [fixed-path   (ft/rm-last-slash path)
              ff           (set filter-files)
-             all-entries  (.listDataObjectsAndCollectionsUnderPath (:lister cm) fixed-path)
-             file-entries (filter 
-                            #(.isDataObject %1) 
-                            all-entries)
-             dir-entries  (filter 
-                            #(.isCollection %1) 
-                            all-entries)
-             files        (list-files user file-entries (ft/rm-last-slash path) ff)
-             dirs         (list-dirs user dir-entries (ft/rm-last-slash path) ff)
+             parted-files (partition-files-folders fixed-path)
+             dir-entries  (or (get parted-files true) (vector))
+             file-entries (or (get parted-files false) (vector))
+             dirs (list-dirs user dir-entries fixed-path ff)
              add-files    #(if include-files
-                             (assoc %1 :files files)
+                             (assoc %1 :files (list-files user file-entries fixed-path ff))
                              %1)]
          (-> {}
-             (assoc
-               :id path
-               :label         (ft/basename path)
-               :hasSubDirs    (pos? (count dirs))
-               :date-created  (created-date path)
-               :date-modified (lastmod-date path)
-               :permissions   (collection-perm-map user path)
-               :folders       dirs)
-             add-files)))))
+           (assoc
+             :id path
+             :label         (ft/basename path)
+             :hasSubDirs    true
+             :date-created  (created-date path)
+             :date-modified (lastmod-date path)
+             :permissions   (collection-perm-map user path)
+             :folders       dirs)
+           add-files)))))
+
+(defn root-listing
+  ([user root-path]
+    (root-listing user root-path (ft/basename root-path)))
+  ([user root-path label]
+    (with-jargon
+      (when (not (user-exists? user))
+        (throw+ {:error_code ERR_NOT_A_USER
+                 :user user}))
+      
+      (when-not (exists? root-path)
+        (throw+ {:error_code ERR_DOES_NOT_EXIST
+                 :path root-path}))
+      
+      (when-not (is-readable? user root-path)
+        (throw+ {:error_code ERR_NOT_READABLE
+                 :path root-path
+                 :user user}))
+      
+      (let [rfile (file root-path)
+            stat  (.initializeObjStatForFile rfile)] 
+        (hash-map
+          :id            root-path
+          :label         label
+          :hasSubDirs    true
+          :date-created  (str (long (.. stat getCreatedAt getTime)))
+          :date-modified (str (long (.. stat getModifiedAt getTime)))
+          :permissions   (perm-vec->map user (.getOwnerName stat) rfile))))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
