@@ -20,12 +20,14 @@
                  [org.irods.jargon.transfer/jargon-transfer-engine "3.0.1-SNAPSHOT"]
                  [org.irods.jargon/jargon-security "3.0.1-SNAPSHOT"]
                  [log4j/log4j "1.2.16"]
-                 [swank-clojure "1.3.1"]]
+                 [swank-clojure "1.3.1"]
+		 [criterium "0.2.1"]]
   :aot [nibblonian.core]
   :main nibblonian.core
   :dev-dependencies [[lein-ring "0.5.4"]
                      [clj-http "0.3.2"]
-                     [org.cloudhoist/stevedore "0.7.1"]]
+                     [org.cloudhoist/stevedore "0.7.1"]
+		     [criterium "0.2.1"]]
   :extra-classpath-dirs ["local-conf"]
   :ring {:init nibblonian.controllers/init
          :handler nibblonian.core/app}
