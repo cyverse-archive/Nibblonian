@@ -26,6 +26,9 @@
 (defroutes nibblonian-routes
   (GET "/" [] "Welcome to Nibblonian!")
   
+  (GET "/root" request
+       (trap "root" do-root-listing request))
+  
   (GET "/home" request
        (trap "home" do-homedir request))
   

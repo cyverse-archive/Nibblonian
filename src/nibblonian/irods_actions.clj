@@ -150,6 +150,34 @@
              :folders       dirs)
            add-files)))))
 
+(defn root-listing
+  ([user root-path]
+    (root-listing user root-path (ft/basename root-path)))
+  ([user root-path label]
+    (with-jargon
+      (when (not (user-exists? user))
+        (throw+ {:error_code ERR_NOT_A_USER
+                 :user user}))
+      
+      (when-not (exists? root-path)
+        (throw+ {:error_code ERR_DOES_NOT_EXIST
+                 :path root-path}))
+      
+      (when-not (is-readable? user root-path)
+        (throw+ {:error_code ERR_NOT_READABLE
+                 :path root-path
+                 :user user}))
+      
+      (let [rfile (file root-path)
+            stat  (.initializeObjStatForFile rfile)] 
+        (hash-map
+          :id            root-path
+          :label         label
+          :hasSubDirs    true
+          :date-created  (str (long (.. stat getCreatedAt getTime)))
+          :date-modified (str (long (.. stat getModifiedAt getTime)))
+          :permissions   (perm-vec->map user (.getOwnerName stat) rfile))))))
+
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
 
