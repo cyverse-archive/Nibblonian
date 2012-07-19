@@ -26,12 +26,51 @@
   [user abspath]
   true)
 
+(defn nib-file-perms
+  "Uses (user-dataobject-perms) to grab the 'raw' permissions for
+   the user for the dataobject at data-path, and returns a map with
+   the keys :read :write and :own. The values are booleans."
+  [user data-path]
+  (let [perms  (.getPermissionForDataObject
+                 (:dataObjectAO cm)
+                 data-path
+                 user
+                 (:zone cm))
+        read   (or (= perms read-perm)
+                   (= perms write-perm)
+                   (= perms own-perm))
+        write  (or (= perms write-perm)
+                   (= perms own-perm))
+        own    (= perms own-perm)]
+    {:read  read
+     :write write
+     :own   own}))
+
+(defn nib-dir-perms
+  "Uses (user-collection-perms) to grab the 'raw' permissions for
+   the user for the collection at coll-path and returns a map with
+   the keys :read, :write, and :own. The values are booleans."
+  [user coll-path]
+  (let [perms  (.getPermissionForCollection 
+                 (:collectionAO cm) 
+                 coll-path 
+                 user 
+                 (:zone cm))
+        read   (or (= perms read-perm)
+                   (= perms write-perm)
+                   (= perms own-perm))
+        write  (or (= perms write-perm)
+                   (= perms own-perm))
+        own    (= perms own-perm)]
+    {:read  read
+     :write write
+     :own   own}))
+
 (defn perm-vec->map
   [user owner list-entry]
-  (hash-map
-    :read  (.canRead list-entry)
-    :write (.canWrite list-entry)
-    :own   (= user owner)))
+  (if (.isDirectory list-entry)
+    (nib-dir-perms user (.getAbsolutePath list-entry))
+    (nib-file-perms user (.getAbsolutePath list-entry))))
 
 (defn obj-map-entry
   [user list-entry]
