@@ -5,7 +5,7 @@
 %define __check_files /bin/true
 Summary: nibblonian
 Name: nibblonian
-Version: 0.1.0
+Version: 0.1.1
 Release: 10
 Epoch: 0
 BuildArchitectures: noarch
