@@ -69,8 +69,8 @@
 (defn perm-vec->map
   [user owner list-entry]
   (if (.isDirectory list-entry)
-    (nib-dir-perms user (.getAbsolutePath list-entry))
-    (nib-file-perms user (.getAbsolutePath list-entry))))
+    (collection-perm-map user (.getAbsolutePath list-entry))
+    (dataobject-perm-map user (.getAbsolutePath list-entry))))
 
 (defn obj-map-entry
   [user list-entry]
