@@ -26,75 +26,23 @@
         #(ft/path-join dirpath %) 
         (.getListInDir fs (file dirpath))))))
 
-(defn- list-perm
-  [user abspath]
-  {:path abspath
-   :user-permissions (filter
-                       #(not (or (= (:user %1) user)
-                                 (= (:user %1) @username)))
-                       (list-user-perms abspath))})
-
-(defn list-perms
-  [user abspaths]
-  (with-jargon
-    (when-not (user-exists? user)
-      (throw+ {:error_code ERR_NOT_A_USER
-               :user user}))
-
-    (when-not (every? exists? abspaths)
-      (throw+ {:error_code ERR_DOES_NOT_EXIST
-               :paths (into
-                       []
-                       (filter
-                        #(not (exists? %1))
-                        abspaths))}))
-    
-    (when-not (every? (partial owns? user) abspaths)
-      (throw+ {:error_code ERR_NOT_OWNER
-               :user user
-               :paths (into
-                       []
-                       (filter
-                        #(not (partial owns? user))
-                        abspaths))}))
-
-    (mapv (partial list-perm user) abspaths)))
-
-(defn list-files
-  [user list-entries dirpath filter-files]
-  (filterv
-    #(and (get-in %1 [:permissions :read]) 
-          (not (contains? filter-files (:id %1)))
-          (not (contains? filter-files (:label %1)))) 
-    (map
-      #(let [abspath (.getFormattedAbsolutePath %1)
-             label   (ft/basename abspath)
-             perms   (dataobject-perm-map user abspath)
-             created (str (long (.. %1 getCreatedAt getTime)))
-             lastmod (str (long (.. %1 getModifiedAt getTime)))
-             size    (str (.getDataSize %1))]
-         (assoc 
-           {}
-           :id            abspath
-           :label         label
-           :permissions   perms
-           :date-created  created
-           :date-modified lastmod
-           :file-size     size)) 
-      list-entries)))
-
 (defn has-sub-dirs
   [user abspath]
   true)
 
-(defn perm-vec->map
-  [user owner list-entry]
-  (hash-map
-    :read  (.canRead list-entry)
-    :write (.canWrite list-entry)
-    :own   (= user owner)))
+(defn date-mod-from-stat 
+  [stat] 
+  (str (long (.. stat getModifiedAt getTime))))
 
-(defn obj-map-entry
+(defn date-created-from-stat
+  [stat]
+  (str (long (.. stat getCreatedAt getTime))))
+
+(defn size-from-stat
+  [stat]
+  (str (.getObjSize stat)))
+
+(defn dir-map-entry
   [user list-entry]
   (let [abspath (.getAbsolutePath list-entry)
         stat    (.initializeObjStatForFile list-entry)
@@ -102,11 +50,23 @@
     (hash-map      
       :id            abspath
       :label         label
-      :permissions   (perm-vec->map user (.getOwnerName stat) list-entry)
-      :hasSubDirs     true
-      :date-created  (str (long (.. stat getCreatedAt getTime)))
-      :date-modified (str (long (.. stat getModifiedAt getTime)))
-      :file-size     (str (.getObjSize stat)))))
+      :permissions   (collection-perm-map user abspath)
+      :hasSubDirs    true
+      :date-created  (date-created-from-stat stat)
+      :date-modified (date-mod-from-stat stat)
+      :file-size     (size-from-stat stat))))
+
+(defn file-map-entry
+  [user list-entry]
+  (let [abspath (.getAbsolutePath list-entry)
+        stat    (.initializeObjStatForFile list-entry)]
+    (hash-map
+      :id            abspath
+      :label         (ft/basename abspath)
+      :permissions   (dataobject-perm-map user abspath)
+      :date-created  (date-created-from-stat stat)
+      :date-modified (date-mod-from-stat stat)
+      :file-size     (size-from-stat stat))))
 
 (defn list-dirs
   [user list-entries dirpath filter-files]
@@ -114,7 +74,7 @@
     #(and (get-in %1 [:permissions :read])
           (not (contains? filter-files (:id %1)))
           (not (contains? filter-files (:label %1))))
-    (map #(obj-map-entry user %) list-entries)))
+    (map #(dir-map-entry user %1) list-entries)))
 
 (defn list-files
   [user list-entries dirpath filter-files]
@@ -122,22 +82,7 @@
     #(and (get-in %1 [:permissions :read]) 
           (not (contains? filter-files (:id %1)))
           (not (contains? filter-files (:label %1)))) 
-    (map
-      #(let [abspath (.getAbsolutePath %1)
-             stat    (.initializeObjStatForFile %1)
-             label   (ft/basename abspath)
-             perms   (perm-vec->map user (.getOwnerName stat) %1)
-             created (str (long (.. stat getCreatedAt getTime)))
-             lastmod (str (long (.. stat getModifiedAt getTime)))
-             size    (str (.getObjSize stat))]
-         (hash-map
-           :id            abspath
-           :label         label
-           :permissions   perms
-           :date-created  created
-           :date-modified lastmod
-           :file-size     size)) 
-      list-entries)))
+    (map #(file-map-entry user %1) list-entries)))
 
 (defn list-in-dir
   [fixed-path]
@@ -192,7 +137,7 @@
              parted-files (partition-files-folders fixed-path)
              dir-entries  (or (get parted-files true) (vector))
              file-entries (or (get parted-files false) (vector))
-             dirs (list-dirs user dir-entries fixed-path ff)
+             dirs         (list-dirs user dir-entries fixed-path ff)
              add-files    #(if include-files
                              (assoc %1 :files (list-files user file-entries fixed-path ff))
                              %1)]
@@ -225,15 +170,7 @@
                  :path root-path
                  :user user}))
       
-      (let [rfile (file root-path)
-            stat  (.initializeObjStatForFile rfile)] 
-        (hash-map
-          :id            root-path
-          :label         label
-          :hasSubDirs    true
-          :date-created  (str (long (.. stat getCreatedAt getTime)))
-          :date-modified (str (long (.. stat getModifiedAt getTime)))
-          :permissions   (perm-vec->map user (.getOwnerName stat) rfile))))))
+      (dir-map-entry user (file root-path)))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
