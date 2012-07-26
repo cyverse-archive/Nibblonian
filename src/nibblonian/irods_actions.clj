@@ -30,6 +30,40 @@
   [user abspath]
   true)
 
+(defn- list-perm
+  [user abspath]
+  {:path abspath
+   :user-permissions (filter
+                       #(not (or (= (:user %1) user)
+                                 (= (:user %1) @username)))
+                       (list-user-perms abspath))})
+
+(defn list-perms
+  [user abspaths]
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+
+    (when-not (every? exists? abspaths)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :paths (into
+                       []
+                       (filter
+                        #(not (exists? %1))
+                        abspaths))}))
+    
+    (when-not (every? (partial owns? user) abspaths)
+      (throw+ {:error_code ERR_NOT_OWNER
+               :user user
+               :paths (into
+                       []
+                       (filter
+                        #(not (partial owns? user))
+                        abspaths))}))
+
+    (mapv (partial list-perm user) abspaths)))
+
 (defn date-mod-from-stat 
   [stat] 
   (str (long (.. stat getModifiedAt getTime))))
