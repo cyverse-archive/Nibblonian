@@ -19,8 +19,9 @@
          :handler nibblonian.core/app}
   :profiles {:dev
              {:resource-paths ["local-conf"],
-              :dependencies
-              [[clj-http "0.3.2"] [org.cloudhoist/stevedore "0.7.1"]]}}
+              :dependencies [[clj-http "0.3.2"] 
+                             [org.cloudhoist/stevedore "0.7.1"]
+                             [criterium "0.2.1"]]}}
   :iplant-rpm {:summary "nibblonian"
                :dependencies ["iplant-service-config >= 0.1.0-5"]
                :config-files ["log4j.properties"]
