@@ -77,18 +77,19 @@
   (str (.getObjSize stat)))
 
 (defn dir-map-entry
-  [user list-entry]
-  (let [abspath (.getAbsolutePath list-entry)
-        stat    (.initializeObjStatForFile list-entry)
-        label   (ft/basename abspath)] 
-    (hash-map      
-      :id            abspath
-      :label         label
-      :permissions   (collection-perm-map user abspath)
-      :hasSubDirs    true
-      :date-created  (date-created-from-stat stat)
-      :date-modified (date-mod-from-stat stat)
-      :file-size     (size-from-stat stat))))
+  ([user list-entry]
+    (dir-map-entry user list-entry (ft/basename (.getAbsolutePath list-entry))))
+  ([user list-entry label]
+    (let [abspath (.getAbsolutePath list-entry)
+          stat    (.initializeObjStatForFile list-entry)] 
+      (hash-map      
+        :id            abspath
+        :label         label
+        :permissions   (collection-perm-map user abspath)
+        :hasSubDirs    true
+        :date-created  (date-created-from-stat stat)
+        :date-modified (date-mod-from-stat stat)
+        :file-size     (size-from-stat stat)))))
 
 (defn file-map-entry
   [user list-entry]
@@ -204,7 +205,7 @@
                  :path root-path
                  :user user}))
       
-      (dir-map-entry user (file root-path)))))
+      (dir-map-entry user (file root-path) label))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
