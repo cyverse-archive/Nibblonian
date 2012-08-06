@@ -1,7 +1,6 @@
 (ns nibblonian.irods-actions
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as ds]
-            [nibblonian.ssl :as ssl]
             [clojure.data.codec.base64 :as b64]
             [ring.util.codec :as cdc]
             [clojure.data.json :as json]
