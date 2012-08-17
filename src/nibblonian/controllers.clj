@@ -178,9 +178,12 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (let [user (query-param request "user")] 
-    {:roots [(irods-actions/root-listing user (get-home-dir user))
-             (irods-actions/root-listing user (community-data) "Community Data")]}))
+  (let [user  (query-param request "user")
+        ihome (get @props "nibblonian.irods.home")
+        uhome (utils/path-join ihome user)]
+    {:roots [(irods-actions/root-listing user uhome)
+             (irods-actions/root-listing user (community-data) "Community Data")
+             (irods-actions/root-listing user ihome "Sharing")]}))
 
 (defn do-rename
   "Performs a rename.
