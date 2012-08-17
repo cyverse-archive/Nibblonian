@@ -633,4 +633,16 @@
     (bad-query "user"))
   
   (let [user (query-param request "user")]
-    {:quotas (irods-actions/get-quota user)}))
+    {:quotas #_(irods-actions/get-quota user)
+     [{:zone "iplant"
+       :resource "mockResc1"
+       :over "-100000"
+       :updated "1341611109000"
+       :limit "10000000"
+       :user user}
+      {:zone "iplant"
+       :resource "mockResc2"
+       :over "10000"
+       :updated "1341611109000"
+       :limit "20000000"
+       :user user}]}))
