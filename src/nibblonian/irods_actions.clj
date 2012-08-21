@@ -148,9 +148,9 @@
    Returns:
      A tree of maps as described above."
   ([user path filter-files]
-     (list-dir user path true filter-files))
+     (list-dir user path true filter-files false))
 
-  ([user path include-files filter-files]
+  ([user path include-files filter-files set-own?]
      (log/warn (str "list-dir " user " " path))
      (with-jargon
        (when-not (user-exists? user)
@@ -160,6 +160,9 @@
        (when-not (exists? path)
          (throw+ {:error_code ERR_DOES_NOT_EXIST
                   :path path}))
+
+       (when (and set-own? (not (owns? user path)))
+         (set-permissions user path false false true))
        
        (when-not (is-readable? user path)
          (throw+ {:error_code ERR_NOT_READABLE
@@ -188,8 +191,10 @@
 
 (defn root-listing
   ([user root-path]
-    (root-listing user root-path (ft/basename root-path)))
+     (root-listing user root-path (ft/basename root-path)))
   ([user root-path label]
+     (root-listing user root-path label false))
+  ([user root-path label set-own?]
     (with-jargon
       (when (not (user-exists? user))
         (throw+ {:error_code ERR_NOT_A_USER
@@ -198,6 +203,9 @@
       (when-not (exists? root-path)
         (throw+ {:error_code ERR_DOES_NOT_EXIST
                  :path root-path}))
+
+      (when (and set-own? (not (owns? user root-path)))
+        (set-permissions user root-path false false true))
       
       (when-not (is-readable? user root-path)
         (throw+ {:error_code ERR_NOT_READABLE
@@ -205,6 +213,9 @@
                  :user user}))
       
       (dir-map-entry user (file root-path) label))))
+
+(defn user-trash-dir
+  [user])
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.

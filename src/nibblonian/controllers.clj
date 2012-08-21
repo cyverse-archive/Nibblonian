@@ -94,15 +94,19 @@
 
 (defn- dir-list
   ([user directory include-files]
+     (dir-list user directory include-files true))
+  
+  ([user directory include-files set-own?]
      (when (super-user? user)
        (throw+ {:error_code ERR_NOT_AUTHORIZED
                 :user user}))
+     
      (let [irods-home (get @props "nibblonian.irods.home")
            comm-dir   (community-data)
            user-dir   (utils/path-join irods-home user)
            public-dir (utils/path-join irods-home "public")
            files-to-filter (conj (filter-files) comm-dir user-dir public-dir)]
-       (irods-actions/list-dir user directory include-files files-to-filter))))
+       (irods-actions/list-dir user directory include-files files-to-filter set-own?))))
 
 (defn do-homedir
   "Returns the home directory for the listed user."
@@ -143,6 +147,25 @@
         files-to-filter (conj (filter-files) comm-dir user-dir public-dir)]
     (irods-actions/shared-root-listing user (get @props "nibblonian.irods.home") inc-files files-to-filter)))
 
+(defn trash-base-dir
+  []
+  (utils/path-join
+   "/"
+   (get @props "nibblonian.irods.zone")
+   "trash"
+   "home"
+   (get @props "nibblonian.irods.user")))
+
+(defn user-trash-dir
+  [user]
+  (utils/path-join (trash-base-dir) user))
+
+(defn user-trash-dir?
+  [user path-to-check]
+  (=
+   (utils/rm-last-slash path-to-check)
+   (utils/rm-last-slash (user-trash-dir user))))
+
 (defn do-directory
   "Performs a list-dirs command.
 
@@ -169,7 +192,9 @@
     (let [user      (query-param request "user")
           path      (query-param request "path")
           inc-files (include-files? request)]
-      (dir-list user path inc-files))))
+      (if (user-trash-dir? user path)
+        (dir-list user path inc-files true)
+        (dir-list user path inc-files)))))
 
 (defn do-root-listing
   [request]
@@ -178,12 +203,15 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
   
-  (let [user  (query-param request "user")
-        ihome (get @props "nibblonian.irods.home")
-        uhome (utils/path-join ihome user)]
-    {:roots [(irods-actions/root-listing user uhome)
-             (irods-actions/root-listing user (community-data) "Community Data")
-             (irods-actions/root-listing user ihome "Sharing")]}))
+  (let [user      (query-param request "user")
+        rods-user (get @props "nibblonian.irods.user")
+        ihome     (get @props "nibblonian.irods.home")
+        uhome     (utils/path-join ihome user)]
+    {:roots
+     [(irods-actions/root-listing user uhome)
+      (irods-actions/root-listing user (community-data) "Community Data")
+      (irods-actions/root-listing user ihome "Sharing")
+      (irods-actions/root-listing user (user-trash-dir user) "Trash" true)]}))
 
 (defn do-rename
   "Performs a rename.
