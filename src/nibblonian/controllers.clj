@@ -651,6 +651,27 @@
         paths (get-in request [:body :paths])]
     {:paths (irods-actions/list-perms user paths)}))
 
+(defn do-restore
+  "Handles restoring a file or directory from a user's trash directory."
+  [request]
+  (log/debug "do-restore")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:path string?})
+    (bad-body request {:paths string?}))
+
+  (when-not (valid-body? request {:name string?})
+    (bad-body request {:name string?}))
+
+  (let [user (query-param request "user")]
+    (irods-actions/restore-path
+     {:user user
+      :path (get-in request [:body :path])
+      :name (get-in request [:body :name])
+      :user-trash (user-trash-dir user)})))
+
 (defn do-quota
   "Handles returning a list of objects representing
    all of the quotas that a user has."

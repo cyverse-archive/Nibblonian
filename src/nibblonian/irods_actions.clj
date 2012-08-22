@@ -844,3 +844,53 @@
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
     (quota user)))
+
+(defn trim-leading-slash
+  [str-to-trim]
+  (string/replace-first str-to-trim #"^\/" ""))
+
+(defn trash-relative-path
+  [path name user-trash]
+  (trim-leading-slash
+   (ft/path-join
+    (or
+     (ft/dirname
+      (string/replace-first path (ft/add-trailing-slash user-trash) ""))
+     "")
+    name)))
+
+(defn user-home-dir
+  [user]
+  (ft/path-join "/" (:zone cm) "home" user))
+
+(defn restoration-path
+  [user path name user-trash]
+  (let [user-home (user-home-dir user)]
+    (ft/path-join user-home (trash-relative-path path name user-trash))))
+
+(defn restore-path
+  [{:keys [user path name user-trash]}]
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+
+    (when-not (exists? path)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :path path}))
+
+    (when-not (is-writeable? user path)
+      (throw+ {:error_code ERR_NOT_WRITEABLE
+               :path path}))
+
+    (let [fully-restored (restoration-path user path name user-trash)]
+      (when (exists? fully-restored)
+        (throw+ {:error_code ERR_EXISTS
+                 :path fully-restored}))
+
+      (when-not (is-writeable? user (ft/dirname fully-restored))
+        (throw+ {:error_code ERR_NOT_WRITEABLE
+                 :path (ft/dirname fully-restored)}))
+
+      (move path fully-restored)
+      {:from path :to fully-restored})))

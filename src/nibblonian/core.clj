@@ -139,6 +139,9 @@
   
   (GET "/quota" request
        (trap "quota-list" do-quota request))
+
+  (POST "/restore" request
+        (trap "restore" do-restore request))
   
   (route/not-found "Not Found!"))
 
