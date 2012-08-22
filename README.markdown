@@ -859,3 +859,31 @@ Response JSON:
         "from" : "\/iplant\/trash\/home\/rods\/wregglej\/foo.fq",
         "to" : "\/iplant\/home\/wregglej\/foo1.fq"
     }
+
+Copying a file or directory
+---------------------------
+The "from" field can be either the path to a file or folder. The "to" field needs to be the path to the destination folder.
+
+Action: "copy"
+
+Error codes: ERR_EXISTS, ERR_DOES_NOT_EXIST, ERR_NOT_A_USER, ERR_NOT_WRITEABLE
+
+Sample Request JSON:
+
+    {
+        "from" : "<absolute path to file/directory>",
+        "to" : "<absolute path to a directory"
+    }
+
+Curl Command:
+
+    curl -H "Content-Type:application/json" -d '{"from" : "/iplant/home/wregglej/foo1.fq", "to" : "/iplant/home/wregglej/blah"}' http://sample.nibblonian.org/copy?user=wregglej
+
+Response JSON:
+
+    {
+        "action" : "copy",
+        "status" : "success",
+        "from" : "\/iplant\/home\/wregglej\/foo1.fq",
+        "to" : "\/iplant\/home\/wregglej\/blah"
+    }

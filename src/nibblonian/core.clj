@@ -142,6 +142,9 @@
 
   (POST "/restore" request
         (trap "restore" do-restore request))
+
+  (POST "/copy" request
+        (trap "copy" do-copy request))
   
   (route/not-found "Not Found!"))
 

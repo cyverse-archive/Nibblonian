@@ -894,3 +894,37 @@
 
       (move path fully-restored)
       {:from path :to fully-restored})))
+
+(defn copy-path
+  [{:keys [user from to]}]
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+
+    (when-not (exists? from)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :path from}))
+
+    (when-not (is-readable? user from)
+      (throw+ {:error_code ERR_NOT_READABLE
+               :path from}))
+
+    (when-not (exists? to)
+      (throw+ {:error_code ERR_DOES_NOT_EXIST
+               :path to}))
+
+    (when-not (is-writeable? user to)
+      (throw+ {:error_code ERR_NOT_WRITEABLE
+               :path to}))
+
+    (when-not (is-dir? to)
+      (throw+ {:error_code ERR_NOT_A_FOLDER
+               :path to}))
+
+    (when (exists? (ft/path-join to (ft/basename from)))
+      (throw+ {:error_code ERR_EXISTS
+               :path (ft/path-join to (ft/basename from))}))
+
+    (copy from to)
+    {:from from :to to}))

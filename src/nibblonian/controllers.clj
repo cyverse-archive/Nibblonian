@@ -672,6 +672,24 @@
       :name (get-in request [:body :name])
       :user-trash (user-trash-dir user)})))
 
+(defn do-copy
+  [request]
+  (log/debug "do-copy")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:from string?})
+    (bad-body request {:from string?}))
+
+  (when-not (valid-body? request {:to string?})
+    (bad-body request {:to string?}))
+
+  (irods-actions/copy-path
+   {:user (query-param request "user")
+    :from (get-in request [:body :from])
+    :to   (get-in request [:body :to])}))
+
 (defn do-quota
   "Handles returning a list of objects representing
    all of the quotas that a user has."
