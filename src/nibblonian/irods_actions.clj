@@ -902,13 +902,13 @@
       (throw+ {:error_code ERR_NOT_A_USER
                :user user}))
 
-    (when-not (exists? from)
+    (when-not (every? exists? from)
       (throw+ {:error_code ERR_DOES_NOT_EXIST
-               :path from}))
+               :paths (filterv #(not (exists? %)) from)}))
 
-    (when-not (is-readable? user from)
+    (when-not (every? #(is-readable? user %) from)
       (throw+ {:error_code ERR_NOT_READABLE
-               :path from}))
+               :path (filterv #(not (is-readable? user %)) from)}))
 
     (when-not (exists? to)
       (throw+ {:error_code ERR_DOES_NOT_EXIST
@@ -922,9 +922,13 @@
       (throw+ {:error_code ERR_NOT_A_FOLDER
                :path to}))
 
-    (when (exists? (ft/path-join to (ft/basename from)))
+    (when (some exists? (mapv #(ft/path-join to (ft/basename %)) from))
       (throw+ {:error_code ERR_EXISTS
-               :path (ft/path-join to (ft/basename from))}))
+               :paths (filterv
+                       #(exists? %)
+                       (mapv #(ft/path-join to (ft/basename %)) from))}))
 
-    (copy from to)
+    (doseq [fr from]
+      (copy fr to))
+    
     {:from from :to to}))

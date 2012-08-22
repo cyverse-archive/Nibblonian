@@ -679,8 +679,8 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
 
-  (when-not (valid-body? request {:from string?})
-    (bad-body request {:from string?}))
+  (when-not (valid-body? request {:from sequential?})
+    (bad-body request {:from sequential?}))
 
   (when-not (valid-body? request {:to string?})
     (bad-body request {:to string?}))

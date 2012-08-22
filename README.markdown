@@ -862,7 +862,7 @@ Response JSON:
 
 Copying a file or directory
 ---------------------------
-The "from" field can be either the path to a file or folder. The "to" field needs to be the path to the destination folder.
+The "from" field is a list of paths to a file or folder. Files and folders can be mixed in together in the "from" field. The "to" field needs to be the path to the destination folder.
 
 Action: "copy"
 
@@ -871,7 +871,7 @@ Error codes: ERR_EXISTS, ERR_DOES_NOT_EXIST, ERR_NOT_A_USER, ERR_NOT_WRITEABLE
 Sample Request JSON:
 
     {
-        "from" : "<absolute path to file/directory>",
+        "from" : ["<absolute path to file/directory>"],
         "to" : "<absolute path to a directory"
     }
 
@@ -884,6 +884,6 @@ Response JSON:
     {
         "action" : "copy",
         "status" : "success",
-        "from" : "\/iplant\/home\/wregglej\/foo1.fq",
+        "from" : ["\/iplant\/home\/wregglej\/foo1.fq"],
         "to" : "\/iplant\/home\/wregglej\/blah"
     }
