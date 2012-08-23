@@ -319,21 +319,16 @@
       (str (preview-buffer path size)))))
 
 (defn user-home-dir
-  [staging-dir user set-owner?]
-  "Returns the path to the user's home directory in our zone of iRODS.
-
-    Parameters:
-      user - String containing a username
-
-    Returns:
-      A string containing the absolute path of the user's home directory."
-  (with-jargon
-    (validators/user-exists user)
-    
-    (let [user-home (ft/path-join staging-dir user)]
-      (if (not (exists? user-home))
-        (mkdirs user-home))
-      user-home)))
+  ([user]
+     (ft/path-join "/" (:zone cm) "home" user))
+  ([staging-dir user set-owner?]
+     (with-jargon
+       (validators/user-exists user)
+       
+       (let [user-home (ft/path-join staging-dir user)]
+         (if (not (exists? user-home))
+           (mkdirs user-home))
+         user-home))))
 
 (defn metadata-get
   [user path]
@@ -368,12 +363,15 @@
     (validators/path-exists path)
     (validators/path-writeable user path)
     
-    (let [new-path (ft/rm-last-slash path)
-          new-attr (:attr avu-map)
-          new-val  (:value avu-map)
-          new-unit (if (string/blank? (:unit avu-map)) IPCRESERVED (:unit avu-map))]
-      (set-metadata new-path new-attr new-val new-unit)
-      {:path new-path :user user})))
+    (let [new-unit (if (string/blank? (:unit avu-map))
+                     IPCRESERVED
+                     (:unit avu-map))]
+      (set-metadata
+       (ft/rm-last-slash path)
+       (:attr avu-map)
+       (:value avu-map)
+       new-unit)
+      {:path (ft/rm-last-slash path) :user user})))
 
 (defn encode-str
   [str-to-encode]
@@ -395,23 +393,40 @@
     (validators/path-exists path)
     (validators/path-writeable user path)
     
-    (let [adds     (:add adds-dels)
-          dels     (:delete adds-dels)
-          new-path (ft/rm-last-slash path)]
-      
-      (doseq [del dels]
+    (let [new-path (ft/rm-last-slash path)]
+      (doseq [del (:delete adds-dels)]
         (when (attribute? new-path del)
           (workaround-delete new-path del)
           (delete-metadata new-path del)))
       
-      (doseq [avu adds]
-        (let [new-attr (:attr avu)
-              new-val  (:value avu)
-              new-unit (if (string/blank? (:unit avu)) 
+      (doseq [avu (:add adds-dels)]
+        (let [new-unit (if (string/blank? (:unit avu)) 
                          IPCRESERVED 
                          (:unit avu))]
-          (set-metadata new-path new-attr new-val new-unit)))
+          (set-metadata new-path (:attr avu) (:value avu) new-unit)))
       {:path (ft/rm-last-slash path) :user user})))
+
+(defn tree-urls-value
+  [path]
+  (-> (get-attribute path "tree-urls") first :value json/read-json))
+
+(defn current-tree-urls-value
+  [path]
+  (if (attribute? path "tree-urls")
+    (tree-urls-value path)
+    []))
+
+(defn add-tree-urls
+  [curr-val tree-urls]
+  (-> (conj curr-val tree-urls) flatten json/json-str))
+
+(defn set-new-tree-urls
+  [path tree-urls]
+  (set-metadata
+   path
+   "tree-urls"
+   (add-tree-urls (current-tree-urls-value path) tree-urls)
+   ""))
 
 (defn set-tree
   [user path tree-urls]
@@ -419,14 +434,8 @@
     (validators/user-exists user)
     (validators/path-exists path)
     (validators/path-writeable user path)
-    
-    (let [tree-urls (:tree-urls tree-urls)
-          curr-val  (if (attribute? path "tree-urls")
-                      (json/read-json (:value (first (get-attribute path "tree-urls"))))
-                      [])
-          new-val (json/json-str (flatten (conj curr-val tree-urls)))]
-      (set-metadata path "tree-urls" new-val "")
-      {:path path :user user})))
+    (set-new-tree-urls path (:tree-urls tree-urls))
+    {:path path :user user}))
 
 (defn metadata-delete
   [user path attr]
@@ -454,17 +463,15 @@
     (json/read-json (:value (first (seq treeurl-maps))))
     []))
 
-(defn tail
-  [num-chars tail-str]
-  (if (< (count tail-str) num-chars)
-    tail-str
-    (.substring tail-str (- (count tail-str) num-chars))))
+(defn preview-url
+  [user path]
+  (str "file/preview?user=" (cdc/url-encode user) 
+       "&path=" 
+       (cdc/url-encode path)))
 
-(defn extension?
-  [path ext]
-  (=
-   (string/lower-case ext)
-   (string/lower-case (tail (count ext) path))))
+(defn content-type
+  [path]
+  (.detect (Tika.) (input-stream path)))
 
 (defn manifest
   [user path data-threshold]
@@ -475,13 +482,9 @@
     (validators/path-readable user path)
     
     {:action "manifest"
-     :content-type (.detect (Tika.) (input-stream path))
-     :tree-urls (format-tree-urls 
-                  (get-attribute path "tree-urls"))
-     :preview (str "file/preview?user=" 
-                   (cdc/url-encode user) 
-                   "&path=" 
-                   (cdc/url-encode path))}))
+     :content-type (content-type path)
+     :tree-urls (format-tree-urls (get-attribute path "tree-urls"))
+     :preview (preview-url user path)}))
 
 (defn download-file
   [user file-path]
@@ -500,23 +503,17 @@
     (validators/user-exists user)
     
     (let [cart-key   (str (System/currentTimeMillis))
-          account    (:irodsAccount cm)
-          irods-host (.getHost account)
-          irods-port (.getPort account)
-          irods-zone (.getZone account)
-          irods-dsr  (.getDefaultStorageResource account)
-          user-home  (ft/path-join "/" @zone "home" user)
-          passwd     (store-cart user cart-key filepaths)]
+          account    (:irodsAccount cm)]
       {:action "download"
        :status "success"
        :data
        {:user user
-        :home user-home
-        :password passwd
-        :host irods-host
-        :port irods-port
-        :zone irods-zone
-        :defaultStorageResource irods-dsr
+        :home (ft/path-join "/" @zone "home" user)
+        :password (store-cart user cart-key filepaths)
+        :host (.getHost account)
+        :port (.getPort account)
+        :zone (.getZone account)
+        :defaultStorageResource (.getDefaultStorageResource account)
         :key cart-key}})))
 
 (defn upload
@@ -524,25 +521,18 @@
   (with-jargon
     (validators/user-exists user)
     
-    (let [cart-key   (str (System/currentTimeMillis))
-          account    (:irodsAccount cm)
-          irods-host (.getHost account)
-          irods-port (.getPort account)
-          irods-zone (.getZone account)
-          user-home  (ft/path-join "/" @zone "home" user)
-          irods-dsr  (.getDefaultStorageResource account)
-          passwd     (temp-password user)]
+    (let [account (:irodsAccount cm)]
       {:action "upload"
        :status "success"
        :data
        {:user user
-        :home user-home
-        :password passwd
-        :host irods-host
-        :port irods-port
-        :zone irods-zone
-        :defaultStorageResource irods-dsr
-        :key cart-key}})))
+        :home (ft/path-join "/" @zone "home" user)
+        :password (temp-password user)
+        :host (.getHost account)
+        :port (.getPort account)
+        :zone (.getZone account)
+        :defaultStorageResource (.getDefaultStorageResource account)
+        :key (str (System/currentTimeMillis))}})))
 
 (defn share
   [user share-withs fpaths perms]
@@ -584,7 +574,11 @@
           ;;bit set. Otherwise, any files that are added to the directory will
           ;;not be shared.
           (when (is-dir? fpath)
-            (.setAccessPermissionInherit (:collectionAO cm) @zone fpath true)))))
+            (.setAccessPermissionInherit
+             (:collectionAO cm)
+             @zone
+             fpath
+             true)))))
     
     {:user share-withs
      :path fpaths
@@ -602,6 +596,10 @@
   [dpath]
   (filter is-dir? (list-paths dpath)))
 
+(defn some-subdirs-readable?
+  [user parent-path]
+  (some #(is-readable? user %1) (subdirs parent-path)))
+
 (defn unshare
   "Allows 'user' to unshare file 'fpath' with user 'unshare-with'."
   [user unshare-withs fpaths]
@@ -609,13 +607,7 @@
     (validators/user-exists user)
     (validators/all-users-exist unshare-withs)
     (validators/all-paths-exist fpaths)
-
-    (when-not (every? (partial owns? user) fpaths)
-      (throw+ {:error_code ERR_NOT_OWNER
-               :path (filterv
-                       #(not (partial owns? user))
-                       fpaths)
-               :user user}))
+    (validators/user-owns-paths user fpaths)
 
     (doseq [unshare-with unshare-withs]
       (doseq [fpath fpaths]
@@ -624,7 +616,7 @@
           (remove-permissions unshare-with fpath)
           
           (when-not (and (contains-subdir? parent-path)
-                         (some #(is-readable? user %1) (subdirs parent-path)))
+                         (some-subdirs-readable? user parent-path))
             (loop [dir-path parent-path]
               (when-not (or (= dir-path base-dir)
                             (contains-accessible-obj? unshare-with dir-path))
@@ -633,6 +625,10 @@
   {:user unshare-withs
    :path fpaths})
 
+(defn sharing-data
+  [user root-dir inc-files filter-files]
+  (list-dir user (ft/rm-last-slash root-dir) inc-files filter-files))
+
 (defn shared-root-listing
   [user root-dir inc-files filter-files]
   
@@ -640,8 +636,8 @@
     (when-not (is-readable? user root-dir)
       (set-permissions user (ft/rm-last-slash root-dir) true false false))
     
-    (let [sharing-data (list-dir user (ft/rm-last-slash root-dir) inc-files filter-files)]
-      (assoc sharing-data :label "Shared"))))
+    (assoc (sharing-data user root-dir inc-files filter-files)
+      :label "Shared")))
 
 (defn get-quota
   [user]
@@ -662,10 +658,6 @@
       (string/replace-first path (ft/add-trailing-slash user-trash) ""))
      "")
     name)))
-
-(defn user-home-dir
-  [user]
-  (ft/path-join "/" (:zone cm) "home" user))
 
 (defn restoration-path
   [user path name user-trash]
