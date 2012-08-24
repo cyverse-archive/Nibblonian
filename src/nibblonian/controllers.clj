@@ -679,16 +679,16 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
 
-  (when-not (valid-body? request {:from sequential?})
-    (bad-body request {:from sequential?}))
+  (when-not (valid-body? request {:paths sequential?})
+    (bad-body request {:paths sequential?}))
 
-  (when-not (valid-body? request {:to string?})
-    (bad-body request {:to string?}))
+  (when-not (valid-body? request {:destination string?})
+    (bad-body request {:destination string?}))
 
   (irods-actions/copy-path
    {:user (query-param request "user")
-    :from (get-in request [:body :from])
-    :to   (get-in request [:body :to])}))
+    :from (get-in request [:body :paths])
+    :to   (get-in request [:body :destination])}))
 
 (defn do-quota
   "Handles returning a list of objects representing

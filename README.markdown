@@ -871,19 +871,19 @@ Error codes: ERR_EXISTS, ERR_DOES_NOT_EXIST, ERR_NOT_A_USER, ERR_NOT_WRITEABLE
 Sample Request JSON:
 
     {
-        "from" : ["<absolute path to file/directory>"],
-        "to" : "<absolute path to a directory"
+        "paths" : ["<absolute path to file/directory>"],
+        "destination" : "<absolute path to a directory"
     }
 
 Curl Command:
 
-    curl -H "Content-Type:application/json" -d '{"from" : "/iplant/home/wregglej/foo1.fq", "to" : "/iplant/home/wregglej/blah"}' http://sample.nibblonian.org/copy?user=wregglej
+    curl -H "Content-Type:application/json" -d '{"paths" : "/iplant/home/wregglej/foo1.fq", "destination" : "/iplant/home/wregglej/blah"}' http://sample.nibblonian.org/copy?user=wregglej
 
 Response JSON:
 
     {
         "action" : "copy",
         "status" : "success",
-        "from" : ["\/iplant\/home\/wregglej\/foo1.fq"],
-        "to" : "\/iplant\/home\/wregglej\/blah"
+        "paths" : ["\/iplant\/home\/wregglej\/foo1.fq"],
+        "destination" : "\/iplant\/home\/wregglej\/blah"
     }
