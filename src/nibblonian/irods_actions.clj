@@ -691,4 +691,4 @@
     (doseq [fr from]
       (copy fr to))
     
-    {:paths from :destination to}))
+    {:sources from :dest to}))

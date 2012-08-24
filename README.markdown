@@ -884,6 +884,6 @@ Response JSON:
     {
         "action" : "copy",
         "status" : "success",
-        "paths" : ["\/iplant\/home\/wregglej\/foo1.fq"],
-        "destination" : "\/iplant\/home\/wregglej\/blah"
+        "sources" : ["\/iplant\/home\/wregglej\/foo1.fq"],
+        "dest" : "\/iplant\/home\/wregglej\/blah"
     }
