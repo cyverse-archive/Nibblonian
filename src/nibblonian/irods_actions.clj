@@ -688,6 +688,11 @@
     (validators/path-is-dir to)
     (validators/no-paths-exist (mapv #(ft/path-join to (ft/basename %)) from))
 
+    ;;;Can't copy a file or directory into itself.
+    (when (some true? (mapv #(= to %1) from))
+      (throw+ {:error_code ERR_INVALID_COPY
+               :paths (filterv #(= to %1) from)}))
+
     (doseq [fr from]
       (copy fr to))
     
