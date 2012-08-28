@@ -47,6 +47,10 @@
 (defn listen-port []
   (Integer/parseInt (get @props "nibblonian.app.listen-port")))
 
+(defn copy-key []
+  (or (get @props "nibblonian.app.copy-key")
+      "ipc-de-copy-from"))
+
 (defn init []
   (let [tmp-props (prps/parse-properties "zkhosts.properties")
         zkurl     (get tmp-props "zookeeper")]
@@ -688,7 +692,8 @@
   (irods-actions/copy-path
    {:user (query-param request "user")
     :from (get-in request [:body :paths])
-    :to   (get-in request [:body :destination])}))
+    :to   (get-in request [:body :destination])}
+   (copy-key)))
 
 (defn do-quota
   "Handles returning a list of objects representing

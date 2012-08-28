@@ -678,22 +678,31 @@
       {:from path :to fully-restored})))
 
 (defn copy-path
-  [{:keys [user from to]}]
-  (with-jargon
-    (validators/user-exists user)
-    (validators/all-paths-exist from)
-    (validators/all-paths-readable user from)
-    (validators/path-exists to)
-    (validators/path-writeable user to)
-    (validators/path-is-dir to)
-    (validators/no-paths-exist (mapv #(ft/path-join to (ft/basename %)) from))
-
-    ;;;Can't copy a file or directory into itself.
-    (when (some true? (mapv #(= to %1) from))
-      (throw+ {:error_code ERR_INVALID_COPY
-               :paths (filterv #(= to %1) from)}))
-
-    (doseq [fr from]
-      (copy fr to))
-    
-    {:sources from :dest to}))
+  ([copy-map]
+     (copy-path copy-map "ipc-de-copy-from"))
+  
+  ([{:keys [user from to]} copy-key]
+     (with-jargon
+       (validators/user-exists user)
+       (validators/all-paths-exist from)
+       (validators/all-paths-readable user from)
+       (validators/path-exists to)
+       (validators/path-writeable user to)
+       (validators/path-is-dir to)
+       (validators/no-paths-exist
+        (mapv #(ft/path-join to (ft/basename %)) from))
+       
+       ;;;Can't copy a file or directory into itself.
+       (when (some true? (mapv #(= to %1) from))
+         (throw+ {:error_code ERR_INVALID_COPY
+                  :paths (filterv #(= to %1) from)}))
+       
+       (doseq [fr from]
+         (copy fr to)
+         (set-metadata
+          (ft/rm-last-slash (ft/path-join to (ft/basename fr)))
+          copy-key
+          fr
+          ""))
+       
+       {:sources from :dest to})))
