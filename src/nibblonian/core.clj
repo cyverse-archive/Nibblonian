@@ -1,7 +1,11 @@
 (ns nibblonian.core
   (:gen-class)
   (:use compojure.core)
-  (:use [ring.middleware
+  (:use nibblonian.request-utils
+        nibblonian.controllers
+        nibblonian.config
+        nibblonian.error-codes
+        [ring.middleware
          params
          keyword-params
          nested-params
@@ -9,9 +13,6 @@
          cookies
          session
          stacktrace]
-        [nibblonian.request-utils]
-        [nibblonian.controllers]
-        [nibblonian.error-codes]
         [slingshot.slingshot :only [try+ throw+]])
   (:require [clojure.tools.cli :as cli] 
             [compojure.route :as route]
@@ -21,7 +22,9 @@
             [clojure.tools.logging :as log]
             [ring.adapter.jetty :as jetty]
             [nibblonian.irods-actions :as irods-actions])
-  (:import [org.irods.jargon.core.exception JargonRuntimeException JargonException]))
+  (:import [org.irods.jargon.core.exception
+            JargonRuntimeException
+            JargonException]))
 
 (defroutes nibblonian-routes
   (GET "/" [] "Welcome to Nibblonian!")
