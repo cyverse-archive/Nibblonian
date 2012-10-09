@@ -3,7 +3,7 @@
             [clojure.tools.logging :as log]
             [clojure-commons.clavin-client :as cl]
             [clojure-commons.props :as prps]
-            [clj-jargon :as jargon]))
+            [clj-jargon.jargon :as jargon]))
 
 (def props (atom nil))
 

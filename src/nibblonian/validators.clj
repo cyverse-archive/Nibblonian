@@ -90,9 +90,14 @@
     (throw+ {:error_code pred-err
              :paths (filterv #(not (pred-func? cm %)) paths)})))
 
+(defn ownage?
+  [cm user path]
+  (owns? cm user path))
+
 (defn user-owns-paths
   [cm user paths]
-  (when-not (every? (partial #(owns? cm %) user) paths)
-    (throw+ {:error_code ERR_NOT_OWNER
-             :user user
-             :paths (filterv #(not (partial #(owns? cm %) user)) paths)})))
+  (let [belongs-to? (partial ownage? cm user)]
+    (when-not (every? (partial #(owns? cm %) user) paths)
+      (throw+ {:error_code ERR_NOT_OWNER
+               :user user
+               :paths (filterv #(not (belongs-to? %)) paths)}))))
