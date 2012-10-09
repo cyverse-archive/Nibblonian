@@ -306,7 +306,7 @@
 
 (defn- preview-buffer
   [cm path size]
-  (let [realsize (file-size path)
+  (let [realsize (file-size cm path)
         buffsize (if (<= realsize size) realsize size)
         buff     (char-array buffsize)]
     (read-file cm path buff)
