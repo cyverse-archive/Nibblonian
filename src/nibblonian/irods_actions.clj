@@ -289,7 +289,7 @@
     (validators/path-satisfies-predicate cm source type-func? type-error)
     (validators/path-not-exists cm dest)
     
-    (let [result (move source dest)]
+    (let [result (move cm source dest)]
       (when-not (nil? result)
         (throw+ {:error_code ERR_INCOMPLETE_RENAME
                  :paths result
@@ -397,7 +397,7 @@
    We're base64 encoding the value before deletion to ensure
    that the deletion will work."
   [cm path attr]
-  (let [{:keys [attr value unit]} (first (get-attribute path attr))]
+  (let [{:keys [attr value unit]} (first (get-attribute cm path attr))]
     (set-metadata cm path attr (encode-str value) unit)))
 
 (defn metadata-batch-set
