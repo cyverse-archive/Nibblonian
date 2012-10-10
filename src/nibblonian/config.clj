@@ -48,7 +48,11 @@
 (defn irods-zone [] (get @props "nibblonian.irods.zone"))
 (defn irods-resc [] (get @props "nibblonian.irods.defaultResource"))
 
+(defn prov-url [] (get @props "nibblonian.prov-proxy-url"))
+(defn service-name [] (or (get @props "nibblonian.service-name")))
+
 (def jg-cfg (atom nil))
+
 (defn jargon-config [] @jg-cfg)
 
 (defn jargon-init
