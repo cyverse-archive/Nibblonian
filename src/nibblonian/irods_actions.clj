@@ -6,7 +6,8 @@
             [clojure.data.json :as json]
             [clojure-commons.file-utils :as ft]
             [clojure.string :as string]
-            [nibblonian.validators :as validators])
+            [nibblonian.validators :as validators]
+            [nibblonian.prov :as prov])
   (:use [clj-jargon.jargon :exclude [init]]
         clojure-commons.error-codes
         [nibblonian.config :exclude [init]]
@@ -126,6 +127,28 @@
     #(.isDirectory %1)
     (list-in-dir cm fixed-path)))
 
+(defn gen-listing
+  [cm user path filter-files include-files]
+  (let [fixed-path   (ft/rm-last-slash path)
+        ff           (set filter-files)
+        parted-files (partition-files-folders cm fixed-path)
+        dir-entries  (or (get parted-files true) (vector))
+        file-entries (or (get parted-files false) (vector))
+        dirs         (list-dirs cm user dir-entries fixed-path ff)
+        add-files    #(if include-files
+                        (assoc %1 :files (list-files cm user file-entries fixed-path ff))
+                        %1)]
+    (-> {}
+        (assoc
+            :id path
+            :label         (ft/basename path)
+            :hasSubDirs    true
+            :date-created  (created-date cm path)
+            :date-modified (lastmod-date cm path)
+            :permissions   (collection-perm-map cm user path)
+            :folders       dirs)
+        add-files)))
+
 (defn list-dir
   "A non-recursive listing of a directory. Contains entries for files.
 
@@ -145,36 +168,21 @@
      (list-dir user path true filter-files false))
 
   ([user path include-files filter-files set-own?]
-     (log/warn (str "list-dir " user " " path))
-     
-     (with-jargon (jargon-config) [cm]
-       (validators/user-exists cm user)
-       (validators/path-exists cm path)
-
-       (when (and set-own? (not (owns? cm user path)))
-         (set-permissions cm user path false false true))
-       
-       (validators/path-readable cm user path)
-       
-       (let [fixed-path   (ft/rm-last-slash path)
-             ff           (set filter-files)
-             parted-files (partition-files-folders cm fixed-path)
-             dir-entries  (or (get parted-files true) (vector))
-             file-entries (or (get parted-files false) (vector))
-             dirs         (list-dirs cm user dir-entries fixed-path ff)
-             add-files    #(if include-files
-                             (assoc %1 :files (list-files cm user file-entries fixed-path ff))
-                             %1)]
-         (-> {}
-           (assoc
-             :id path
-             :label         (ft/basename path)
-             :hasSubDirs    true
-             :date-created  (created-date cm path)
-             :date-modified (lastmod-date cm path)
-             :permissions   (collection-perm-map cm user path)
-             :folders       dirs)
-           add-files)))))
+    (log/warn (str "list-dir " user " " path))
+    
+    (with-jargon (jargon-config) [cm]
+      (validators/user-exists cm user)
+      (validators/path-exists cm path)
+      
+      (when (and set-own? (not (owns? cm user path)))
+        (set-permissions cm user path false false true))
+      
+      (validators/path-readable cm user path)
+      
+      (let [listing (gen-listing cm user path filter-files include-files)]
+        (prov/register cm user listing)
+        (prov/log-provenance cm user listing prov/list-dir)
+        listing))))
 
 (defn root-listing
   ([user root-path]
