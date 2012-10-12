@@ -49,10 +49,10 @@
 (defn list-perms
   [user abspaths]
   (with-jargon (jargon-config) [cm]
-    (validators/user-exists user)
-    (validators/all-paths-exist abspaths)
-    (validators/user-owns-paths user abspaths)
-    (mapv (partial list-perm user) abspaths)))
+    (validators/user-exists cm user)
+    (validators/all-paths-exist cm abspaths)
+    (validators/user-owns-paths cm user abspaths)
+    (mapv (partial list-perm cm user) abspaths)))
 
 (defn date-mod-from-stat 
   [stat] 
@@ -564,14 +564,16 @@
     (validators/user-exists cm user)
     (validators/all-users-exist cm share-withs)
     (validators/all-paths-exist cm fpaths)
+    (validators/user-owns-paths cm user fpaths)
     
-    (when-not (every? (partial #(owns? cm %) user) fpaths)
-      (throw+ {:error_code ERR_NOT_OWNER
-               :paths (filterv
-                        (partial #(owns? cm %) user)
-                        fpaths)
-               :user user}))
-
+    
+    #_(when-not (every? (partial #(owns? cm %) user) fpaths)
+        (throw+ {:error_code ERR_NOT_OWNER
+                 :paths (filterv
+                         (partial #(owns? cm %) user)
+                         fpaths)
+                 :user user}))
+    
     (doseq [share-with share-withs]
       (doseq [fpath fpaths]
         (let [read-perm  (:read perms)
