@@ -56,18 +56,6 @@
 
 ;;;Utility functions
 
-(defn determine-category
-  "Figures out the provenance category that is appropriate for the object
-   passed in. 'cm' is a clj-jargon context map."
-  [cm obj]
-  (cond
-   (and (string? obj)
-        (jg/is-dir? cm obj))              irods-dir
-   (and (string? obj)
-        (jg/is-file? cm obj))             irods-file
-   (instance? FileShoppingCart obj)       irods-cart
-   :else                                  nil))
-
 (defn avu?
   "Predicate that returns true if obj represents an iRODS AVU. This means
    that it is a map that has the following keys: :attr :value :unit :path."
@@ -89,6 +77,27 @@
         (contains? obj :permissions)
         (contains? obj :date-created)
         (contains? obj :date-modified)))
+
+(defn determine-category
+  "Figures out the provenance category that is appropriate for the object
+   passed in. 'cm' is a clj-jargon context map."
+  [cm obj]
+  (cond
+   (and (string? obj)
+        (jg/is-dir? cm obj))              irods-dir
+        
+   (and (string? obj)
+        (jg/is-file? cm obj))             irods-file
+        
+   (and (map? obj)
+        (avu? obj))                       irods-avu
+
+   (and (map? obj)
+        (listing? obj))                   irods-listing
+        
+   (instance? FileShoppingCart obj)       irods-cart
+        
+   :else                                  nil))
 
 (defn irods-domain-obj
   "Returns a domain object for obj.
@@ -178,13 +187,11 @@
      "This is another string.")))
 
 (defn arg-map
-  [cm user obj event &
-   {:keys [proxy-user category data]
+  [cm user obj-id event category &
+   {:keys [proxy-user data]
     :or {proxy-user (cfg/irods-user)
-         data       nil
-         category   (determine-category cm obj)}}]
-  (let [obj-id (object-id cm user obj)
-        svc    (cfg/service-name)
+         data       nil}}]
+  (let [svc    (cfg/service-name)
         purl   (cfg/prov-url)]
     (p/prov-map purl obj-id user svc event category proxy-user data)))
 
@@ -207,9 +214,9 @@
   (try 
     (let [obj-id (object-id cm user obj)
           obj-nm (object-name cm user obj)]
-      
       (if-not (p/exists? (cfg/prov-url) obj-id)
-        (p/register (cfg/prov-url) obj-id obj-nm desc parent-uuid)))
+        (p/register (cfg/prov-url) obj-id obj-nm desc parent-uuid))
+      obj-id)
     (catch Exception e
       (log/warn e))
     (catch java.net.ConnectException ce 
@@ -218,9 +225,11 @@
       (log/warn t))))
 
 (defn log-provenance
-  [cm user obj event & {:keys [data]}]
+  [cm user obj-id event category & {:keys [data]}]
   (try
-    (log/warn (str "Log Provenance: " (p/log (arg-map cm user obj event :data data))))
+    (log/warn
+     (str "Log Provenance: "
+          (p/log (arg-map cm user obj-id event category :data data))))
     (catch Exception e
       (log/warn e))
     (catch java.net.ConnectException ce 
