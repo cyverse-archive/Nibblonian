@@ -36,10 +36,10 @@
 
 (defn filtered-user-perms
   [cm user abspath]
-  (filter
-   #(not (or (= (:user %1) user)
-             (= (:user %1) (irods-user))))
-   (list-user-perms cm abspath)))
+  (let [filtered-users (set (conj (perms-filter) user (irods-user)))]
+    (filter
+     #(not (contains? filtered-users (:user %1)))
+     (list-user-perms cm abspath))))
 
 (defn- list-perm
   [cm user abspath]

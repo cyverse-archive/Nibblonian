@@ -29,6 +29,9 @@
 (defn filter-files []
   (string/split (get @props "nibblonian.app.filter-files") #","))
 
+(defn perms-filter []
+  (string/split (get @props "nibblonian.app.perms-filter") #","))
+
 (defn use-trash []
   (java.lang.Boolean/parseBoolean
     (get @props "nibblonian.app.use-trash")))
