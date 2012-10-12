@@ -179,9 +179,10 @@
       
       (validators/path-readable cm user path)
       
-      (let [listing (gen-listing cm user path filter-files include-files)]
-        (prov/register cm user listing)
-        (prov/log-provenance cm user listing prov/list-dir)
+      (let [listing (gen-listing cm user path filter-files include-files)
+            obj-id  (prov/register cm user listing)
+            obj-cat (prov/determine-category cm listing)]
+        (prov/log-provenance cm user obj-id prov/list-dir obj-cat)
         listing))))
 
 (defn root-listing
