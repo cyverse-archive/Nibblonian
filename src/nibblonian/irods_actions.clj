@@ -159,7 +159,8 @@
       :folders A sequence of directory maps}
 
    Parameters:
-     user - String containing the username of the user requesting the listing.
+     user - String containing the username of the user requesting the
+        listing.
      path - String containing path to the top-level directory in iRODS.
 
    Returns:
@@ -179,11 +180,8 @@
       
       (validators/path-readable cm user path)
       
-      (let [listing (gen-listing cm user path filter-files include-files)
-            obj-id  (prov/register cm user listing)
-            obj-cat (prov/determine-category cm listing)]
-        (prov/log-provenance cm user obj-id prov/list-dir obj-cat)
-        listing))))
+      (let [listing (gen-listing cm user path filter-files include-files)]
+        (prov/log-provenance cm user listing prov/list-dir)))))
 
 (defn root-listing
   ([user root-path]
@@ -201,7 +199,9 @@
         (set-permissions cm user root-path false false true))
 
       (validators/path-readable cm user root-path)
-      (dir-map-entry cm user (file cm root-path) label))))
+      
+      (let [rlisting (dir-map-entry cm user (file cm root-path) label)]
+        (prov/log-provenance cm user rlisting prov/root)))))
 
 (defn user-trash-dir
   [user])
@@ -210,7 +210,8 @@
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
 
    Parameters:
-     user - String containing the username of the user requesting the directory.
+     user - String containing the username of the user requesting the
+         directory.
      path - The path that the directory will be created at in iRODS.
 
    Returns a map of the format {:action \"create\" :path \"path\"}"
@@ -223,9 +224,8 @@
     
     (mkdir cm path)
     (set-owner cm path user)
-    (fix-owners cm path user (irods-user))
-    {:path path 
-     :permissions (collection-perm-map cm user path)}))
+    (prov/log-provenance cm user path prov/create-dir)
+    {:path path :permissions (collection-perm-map cm user path)}))
 
 (defn- del
   "Performs some validation and calls delete.
@@ -235,7 +235,7 @@
      paths - a sequence of strings containing directory paths.
 
    Returns a map describing the success or failure of the deletion command."
-  [user paths type-func? type-error]
+  [user paths type-func? type-error prov-event]
   (let [home-matcher #(= (str "/" (irods-zone) "/home/" user)
                          (ft/rm-last-slash %1))] 
     (with-jargon (jargon-config) [cm]
@@ -249,17 +249,18 @@
                  :paths (filterv home-matcher paths)}))
       
       (doseq [p paths] 
-        (delete cm p))
+        (delete cm p)
+        (prov/log-provenance cm user p prov-event))
       
       {:paths paths})))
 
 (defn delete-dirs
   [user paths]
-  (del user paths is-dir? ERR_NOT_A_FOLDER))
+  (del user paths is-dir? ERR_NOT_A_FOLDER prov/delete-dir))
 
 (defn delete-files
   [user paths]
-  (del user paths is-file? ERR_NOT_A_FILE))
+  (del user paths is-file? ERR_NOT_A_FILE prov/delete-file))
 
 (defn- mv
   "Moves directories listed in 'sources' into the directory listed in 'dest'. This
@@ -737,7 +738,8 @@
           (ft/rm-last-slash (ft/path-join to (ft/basename fr)))
           copy-key
           fr
-          ""))
+          "")
+         (set-owner cm to user))
        
        {:sources from :dest to})))
 

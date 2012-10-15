@@ -22,6 +22,7 @@
 (def list-dir "list-directory")
 (def rename-dir "rename-directory")
 (def delete-dir "delete-directory")
+(def delete-file "delete-file")
 (def move-dir "move-directory")
 (def preview-file "preview-file")
 (def file-manifest "file-manifest")
@@ -224,7 +225,7 @@
     (catch Throwable t
       (log/warn t))))
 
-(defn log-provenance
+(defn send-provenance
   [cm user obj-id event category & {:keys [data]}]
   (try
     (log/warn
@@ -236,3 +237,10 @@
       (log/warn ce))
     (catch Throwable t
       (log/warn t))))
+
+(defn log-provenance
+  [cm user obj event & {:keys [parent-uuid data]}]
+  (let [obj-id  (register cm user obj parent-uuid)
+        obj-cat (determine-category cm obj)]
+    (send-provenance cm user obj-id event obj-cat :data data)
+    obj))
