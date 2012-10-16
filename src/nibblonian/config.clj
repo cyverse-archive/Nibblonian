@@ -70,7 +70,7 @@
    (irods-resc)
    :max-retries (max-retries)
    :retry-sleep (retry-sleep)
-   :use-trqsh   (use-trash)))
+   :use-trash   (use-trash)))
 
 (defn init []
   (let [tmp-props (prps/parse-properties "zkhosts.properties")

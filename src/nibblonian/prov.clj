@@ -9,32 +9,35 @@
            [org.irods.jargon.core.pub.domain IRODSDomainObject]))
 
 ;;;Event Names
-(def root "root")
-(def home "home")
-(def file-exists "file-exists")
-(def dir-exists "directory-exists")
+(def root "root") ;done
+(def home "home") ;done
+(def file-exists "file-exists") ;done
+(def dir-exists "directory-exists") ;done
 (def stat-file "stat-file")
 (def stat-dir "stat-directory")
-(def download "download")
+(def download "download") ;done
 (def download-cart "download-cart")
 (def upload-cart "upload-cart")
-(def create-dir "create-directory")
-(def list-dir "list-directory")
-(def rename-dir "rename-directory")
+(def create-dir "create-directory") ;done
+(def list-dir "list-directory") ;done
+(def rename-dir "rename-directory") ;done
+(def rename-file "rename-file") ;done
 (def delete-dir "delete-directory")
 (def delete-file "delete-file")
-(def move-dir "move-directory")
-(def preview-file "preview-file")
-(def file-manifest "file-manifest")
-(def get-file-metadata "get-file-metadata")
-(def set-file-metadata "set-file-metadata")
-(def del-file-metadata "delete-file-metadata")
-(def get-tree-urls "get-tree-urls")
-(def set-file-metadata-batch "set-file-metadata-batch")
-(def get-dir-metadata "get-directory-metadata")
-(def set-dir-metadata "set-directory-metadata")
-(def del-dir-metadata "del-dir-metadata")
-(def set-dir-metadata-batch "set-directory-metadata-batch")
+(def move-dir "move-directory") ;done
+(def move-file "move-file") ;done
+(def preview-file "preview-file") ;done
+(def file-manifest "file-manifest") ;done
+(def get-file-metadata "get-file-metadata") ;done
+(def set-file-metadata "set-file-metadata") ;done
+(def del-file-metadata "delete-file-metadata") ;done
+(def get-tree-urls "get-tree-urls") ;done
+(def set-tree-urls "set-tree-urls") ;done
+(def set-file-metadata-batch "set-file-metadata-batch") ;done
+(def get-dir-metadata "get-directory-metadata") ;done
+(def set-dir-metadata "set-directory-metadata") ;done
+(def del-dir-metadata "del-dir-metadata") ;done
+(def set-dir-metadata-batch "set-directory-metadata-batch") ;done
 (def share-file "share-file")
 (def share-dir "share-directory")
 (def unshare-file "unshare-file")
@@ -218,6 +221,21 @@
       (if-not (p/exists? (cfg/prov-url) obj-id)
         (p/register (cfg/prov-url) obj-id obj-nm desc parent-uuid))
       obj-id)
+    (catch Exception e
+      (log/warn e))
+    (catch java.net.ConnectException ce 
+      (log/warn ce))
+    (catch Throwable t
+      (log/warn t))))
+
+(defn register-parent
+  [cm user obj & [parent-uuid desc]]
+  (try 
+    (let [obj-id (object-id cm user obj)
+          obj-nm (object-name cm user obj)]
+      (if-not (p/exists? (cfg/prov-url) obj-id)
+        (p/register (cfg/prov-url) obj-id obj-nm desc parent-uuid))
+      (p/lookup (cfg/prov-url) obj-id))
     (catch Exception e
       (log/warn e))
     (catch java.net.ConnectException ce 
