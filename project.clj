@@ -36,5 +36,5 @@
   :main nibblonian.core
   :min-lein-version "2.0.0"
   :plugins [[lein-ring "0.5.4"]
-            [org.iplantc/lein-iplant-rpm "1.3.0-SNAPSHOT"]]
+            [org.iplantc/lein-iplant-rpm "1.4.0-SNAPSHOT"]]
   :description "RESTful interface into iRODS.")
