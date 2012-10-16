@@ -6,7 +6,7 @@
                  [org.clojure/java.classpath "0.1.0"]
                  [org.clojure/data.codec "0.1.0"]
                  [org.iplantc/clojure-commons "1.2.0-SNAPSHOT"]
-                 [org.iplantc/clj-jargon "0.1.1-SNAPSHOT"]
+                 [org.iplantc/clj-jargon "0.1.3-SNAPSHOT"]
                  [compojure "1.0.1"]
                  [org.clojure/tools.cli "0.2.1"]
                  [ring/ring-jetty-adapter "1.0.1"]
