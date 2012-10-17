@@ -465,12 +465,9 @@
   (when-not (valid-body? request {:paths vector?})
     (bad-body request {:paths vector?}))
   
-  (let [paths (:paths (:body request))]
-    {:paths
-     (apply
-      conj
-      {}
-      (map #(hash-map %1 (irods-actions/path-exists? %1)) paths))}))
+  (let [paths (:paths (:body request))
+        user  (query-param request "user")]
+    {:paths (apply conj {} (map #(hash-map %1 (irods-actions/path-exists? %1)) paths))}))
 
 (defn do-stat
   "Returns data object status information for one or more paths."
@@ -483,8 +480,9 @@
   (when-not (valid-body? request {:paths vector?})
     (bad-body request {:paths vector?}))
 
-  (let [paths (:paths (:body request))]
-    {:paths (into {} (map #(vector % (irods-actions/path-stat %)) paths))}))
+  (let [paths (:paths (:body request))
+        user  (query-param request "user")]
+    {:paths (into {} (map #(vector % (irods-actions/path-stat user %)) paths))}))
 
 (defn do-manifest
   "Returns a manifest consisting of preview and rawcontent fields for a
@@ -637,16 +635,4 @@
     (bad-query "user"))
   
   (let [user (query-param request "user")]
-    {:quotas #_(irods-actions/get-quota user)
-     [{:zone "iplant"
-       :resource "mockResc1"
-       :over "-100000"
-       :updated "1341611109000"
-       :limit "10000000"
-       :user user}
-      {:zone "iplant"
-       :resource "mockResc2"
-       :over "10000"
-       :updated "1341611109000"
-       :limit "20000000"
-       :user user}]}))
+    {:quotas (irods-actions/get-quota user)}))

@@ -52,6 +52,13 @@
     (validators/user-exists cm user)
     (validators/all-paths-exist cm abspaths)
     (validators/user-owns-paths cm user abspaths)
+
+    (doseq [abspath abspaths]
+      (let [prov-event (if (is-dir? cm abspath) prov/get-user-dir-perms prov/get-user-file-perms)]
+        (prov/log-provenance cm user abspath prov-event
+                             :data {:path abspath
+                                    :perms (list-perm cm user abspath)})))
+    
     (mapv (partial list-perm cm user) abspaths)))
 
 (defn date-mod-from-stat 
@@ -248,9 +255,9 @@
         (throw+ {:error_code ERR_NOT_AUTHORIZED 
                  :paths (filterv home-matcher paths)}))
       
-      (doseq [p paths] 
-        (delete cm p)
-        (prov/log-provenance cm user p prov-event))
+      (doseq [p paths]
+        (prov/log-provenance cm user p prov-event)
+        (delete cm p))
       
       {:paths paths})))
 
@@ -289,9 +296,9 @@
       (doseq [dest-path dest-paths]
         (let [source-path (get all-paths dest-path)
               parent-uuid (prov/register-parent cm user source-path)]
-          (prov/log-provenance cm user dest-path prov-event :
-                               data {:dest-path dest-path
-                                     :source-path source-path})))
+          (prov/log-provenance cm user dest-path prov-event
+                               :data {:dest-path dest-path
+                                      :source-path source-path})))
       
       {:sources sources :dest dest})))
 
@@ -375,7 +382,7 @@
        (let [user-home (ft/path-join staging-dir user)]
          (if (not (exists? cm user-home))
            (mkdirs cm user-home))
-         (prov/log-proveance cm user user-home prov/home)
+         (prov/log-provenance cm user user-home prov/home)
          user-home))))
 
 (defn metadata-get
@@ -515,17 +522,19 @@
     {:path path :user user}))
 
 (defn path-exists?
-  [path]
+  [user path]
   (with-jargon (jargon-config) [cm]
     (let [retval     (exists? cm path)
           prov-event (if (is-dir? cm path) prov/dir-exists prov/file-exists)]
-      (prov/log-provenance cm (irods-user) path prov-event))))
+      (prov/log-provenance cm user path prov-event))))
 
 (defn path-stat
-  [path]
+  [user path]
   (with-jargon (jargon-config) [cm]
     (validators/path-exists cm path)
-    (stat cm path)))
+    (let [prov-event (if (is-dir? cm path) prov/stat-dir prov/stat-file)
+          retval     (stat cm path)]
+      (prov/log-provenance cm user path prov-event))))
 
 (defn- format-tree-urls
   [treeurl-maps]
@@ -555,7 +564,8 @@
                   :content-type (content-type cm path)
                   :tree-urls (format-tree-urls (get-attribute cm path "tree-urls"))
                   :preview (preview-url user path)}]
-      (prov/log-provenance cm user path prov/file-manifest :data retval))))
+      (prov/log-provenance cm user path prov/file-manifest :data retval)
+      retval)))
 
 (defn download-file
   [user file-path]
@@ -586,6 +596,7 @@
                        :zone (.getZone account)
                        :defaultStorageResource (.getDefaultStorageResource account)
                        :key cart-key}}]
+      (prov/log-provenance cm user retval prov/download-cart :data {:paths filepaths})
       retval)))
 
 (defn upload
@@ -593,18 +604,20 @@
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     
-    (let [account (:irodsAccount cm)]
-      {:action "upload"
-       :status "success"
-       :data
-       {:user user
-        :home (ft/path-join "/" (irods-zone) "home" user)
-        :password (temp-password cm user)
-        :host (.getHost account)
-        :port (.getPort account)
-        :zone (.getZone account)
-        :defaultStorageResource (.getDefaultStorageResource account)
-        :key (str (System/currentTimeMillis))}})))
+    (let [account (:irodsAccount cm)
+          retval  {:action "upload"
+                   :status "success"
+                   :data
+                   {:user user
+                    :home (ft/path-join "/" (irods-zone) "home" user)
+                    :password (temp-password cm user)
+                    :host (.getHost account)
+                    :port (.getPort account)
+                    :zone (.getZone account)
+                    :defaultStorageResource (.getDefaultStorageResource account)
+                    :key (str (System/currentTimeMillis))}}]
+      (prov/log-provenance cm user retval prov/upload-cart :data retval)
+      retval)))
 
 (defn share
   [user share-withs fpaths perms]
@@ -644,7 +657,11 @@
              (:collectionAO cm)
              (irods-zone)
              fpath
-             true)))))
+             true))
+          
+          (let [prov-event (if (is-dir? cm fpath) prov/share-dir prov/share-file)]
+            (prov/log-provenance cm user fpath prov-event :data {:path fpath
+                                                                 :shared-with share-with})))))
     
     {:user share-withs
      :path fpaths
@@ -686,7 +703,12 @@
             (loop [dir-path parent-path]
               (when-not (or (= dir-path base-dir)
                             (contains-accessible-obj? cm unshare-with dir-path))
+                
                 (remove-permissions cm unshare-with dir-path)
+                
+                (let [prov-event (if (is-dir? cm fpath) prov/unshare-dir prov/unshare-file)]
+                  (prov/log-provenance cm user fpath prov-event :data {:path fpath
+                                                                      :unshared-with unshare-with}))
                 (recur (ft/dirname dir-path)))))))))
   {:user unshare-withs
    :path fpaths})
@@ -715,7 +737,9 @@
   [user]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
-    (quota cm user)))
+    (let [retval (quota cm user)]
+      (prov/log-provenance cm user (irods-home) prov/quota :data retval)
+      retval)))
 
 (defn trim-leading-slash
   [str-to-trim]
@@ -746,7 +770,17 @@
     (let [fully-restored (restoration-path user path name user-trash)]
       (validators/path-not-exists cm fully-restored)
       (validators/path-writeable cm user (ft/dirname fully-restored))
+      
       (move cm path fully-restored)
+
+      (let [prov-event  (if (is-dir? cm fully-restored) prov/restore-dir prov/restore-file)
+            parent-uuid (prov/register-parent cm user path)]
+        (prov/log-provenance cm user fully-restored prov-event
+                             :parent-uuid parent-uuid
+                             :data {:user user
+                                    :restored-from path
+                                    :restored-to fully-restored}))
+      
       {:from path :to fully-restored})))
 
 (defn copy-path
@@ -761,9 +795,7 @@
        (validators/path-exists cm to)
        (validators/path-writeable cm user to)
        (validators/path-is-dir cm to)
-       (validators/no-paths-exist
-        cm
-        (mapv #(ft/path-join to (ft/basename %)) from))
+       (validators/no-paths-exist cm (mapv #(ft/path-join to (ft/basename %)) from))
        
        ;;;Can't copy a file or directory into itself.
        (when (some true? (mapv #(= to %1) from))
@@ -771,14 +803,17 @@
                   :paths (filterv #(= to %1) from)}))
        
        (doseq [fr from]
-         (copy cm fr to)
-         (set-metadata
-          cm
-          (ft/rm-last-slash (ft/path-join to (ft/basename fr)))
-          copy-key
-          fr
-          "")
-         (set-owner cm to user))
+         (let [metapath (ft/rm-last-slash (ft/path-join to (ft/basename fr)))]
+           (copy cm fr to)
+           (set-metadata cm metapath copy-key fr "")
+           (set-owner cm to user)
+           (let [prov-event (if (is-dir? cm to) prov/copy-dir prov/copy-file)
+                 parent-uuid (prov/register-parent cm user fr)]
+             (prov/log-provenance cm user to
+                                  :parent-uuid parent-uuid
+                                  :data {:user user
+                                         :copy-from fr
+                                         :copy-to to}))))
        
        {:sources from :dest to})))
 
