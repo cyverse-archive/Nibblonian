@@ -148,6 +148,9 @@
 
   (POST "/copy" request
         (trap "copy" do-copy request))
+
+  (GET "/user-trash-dir" request
+       (trap "user-trash-dir" do-user-trash request))
   
   (route/not-found "Not Found!"))
 

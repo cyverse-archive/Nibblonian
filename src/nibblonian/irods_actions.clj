@@ -755,33 +755,41 @@
      "")
     name)))
 
+(defn user-trash-dir
+  [user]
+  (with-jargon (jargon-config) [cm]
+    (validators/user-exists cm user)
+    {:trash (ft/path-join "/" (irods-zone) "trash/home/" (irods-user) user)}))
+
 (defn restoration-path
   [user path name user-trash]
   (let [user-home (user-home-dir user)]
     (ft/path-join user-home (trash-relative-path path name user-trash))))
 
 (defn restore-path
-  [{:keys [user path name user-trash]}]
+  [{:keys [user paths user-trash]}]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
-    (validators/path-exists cm path)
-    (validators/path-writeable cm user path)
+    (validators/all-paths-exist cm paths)
+    (validators/all-paths-writeable cm user paths)
 
-    (let [fully-restored (restoration-path user path name user-trash)]
-      (validators/path-not-exists cm fully-restored)
-      (validators/path-writeable cm user (ft/dirname fully-restored))
-      
-      (move cm path fully-restored)
+    (let [retval (atom (hash-map))]
+      (doseq [path paths]
+        (let [fully-restored (restoration-path user path (ft/basename path) user-trash)]
+          (validators/path-not-exists cm fully-restored)
+          (validators/path-writeable cm user (ft/dirname fully-restored))
+          
+          (move cm path fully-restored)
+          (reset! retval (assoc @retval path fully-restored))
 
-      (let [prov-event  (if (is-dir? cm fully-restored) prov/restore-dir prov/restore-file)
-            parent-uuid (prov/register-parent cm user path)]
-        (prov/log-provenance cm user fully-restored prov-event
-                             :parent-uuid parent-uuid
-                             :data {:user user
-                                    :restored-from path
-                                    :restored-to fully-restored}))
-      
-      {:from path :to fully-restored})))
+          (let [prov-event  (if (is-dir? cm fully-restored) prov/restore-dir prov/restore-file)
+                parent-uuid (prov/register-parent cm user path)]
+            (prov/log-provenance cm user fully-restored prov-event
+                                 :parent-uuid parent-uuid
+                                 :data {:user user
+                                        :restored-from path
+                                        :restored-to fully-restored}))))
+      {:restored @retval})))
 
 (defn copy-path
   ([copy-map]

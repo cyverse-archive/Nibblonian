@@ -593,17 +593,17 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
 
-  (when-not (valid-body? request {:path string?})
+  (when-not (valid-body? request {:paths sequential?})
     (bad-body request {:paths string?}))
 
-  (when-not (valid-body? request {:name string?})
+  #_(when-not (valid-body? request {:name string?})
     (bad-body request {:name string?}))
 
   (let [user (query-param request "user")]
     (irods-actions/restore-path
      {:user user
-      :path (get-in request [:body :path])
-      :name (get-in request [:body :name])
+      :paths (get-in request [:body :paths])
+      #_(:name (get-in request [:body :name]))
       :user-trash (user-trash-dir user)})))
 
 (defn do-copy
@@ -636,3 +636,13 @@
   
   (let [user (query-param request "user")]
     {:quotas (irods-actions/get-quota user)}))
+
+(defn do-user-trash
+  [request]
+  (log/debug "do-user-trash")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (let [user (query-param request "user")]
+    (irods-actions/user-trash-dir user)))

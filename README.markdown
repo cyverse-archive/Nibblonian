@@ -843,22 +843,25 @@ Error codes: ERR_EXISTS, ERR_DOES_NOT_EXIST, ERR_NOT_A_USER, ERR_NOT_WRITEABLE
 Sample Request JSON:
 
     {
-        "path" : "<absolute path to trashed file>",
-        "name" : "<name the restored file should have>"
+        "paths" : ["<absolute path to trashed 
     }
 
 Curl Command:
 
-    curl -H "Content-Type:application/json" -d '{"path" : "/iplant/trash/home/proxy-user/johnworth/foo.fq", "name" : "foo1.fq"}' http://sample.nibblonian.org/restore?user=johnworth
+    curl -H "Content-Type:application/json" -d '{"paths" : ["/iplant/trash/home/proxy-user/johnworth/foo.fq", "/iplant/trash/home/proxy-user/johnworth/foo1.fq"]}' http://sample.nibblonian.org/restore?user=johnworth
 
 Response JSON:
 
     {
         "action" : "restore",
         "status" : "success",
-        "from" : "\/iplant\/trash\/home\/rods\/wregglej\/foo.fq",
-        "to" : "\/iplant\/home\/wregglej\/foo1.fq"
+        "restored" : {
+            "/iplant/trash/home/proxy-user/johnworth/foo.fq" : "/iplant/home/johnworth/foo.fq",
+            "/iplant/trash/home/proxy-user/johnworth/foo1.fq" : "/iplant/home/johnworth/foo1.fq"
+        }
     }
+
+The "restored" field contains a map whose keys are the paths in the user's that were restored and whose keys are the paths the files were restored to.
 
 Copying a file or directory
 ---------------------------
@@ -887,3 +890,22 @@ Response JSON:
         "sources" : ["\/iplant\/home\/wregglej\/foo1.fq"],
         "dest" : "\/iplant\/home\/wregglej\/blah"
     }
+
+Getting the path to a user's trash directory
+--------------------------------------------
+Action: "user-trash-dir"
+
+Error codes: ERR_NOT_A_USER
+
+Curl Command:
+
+    curl http://sample.nibblonian.org/user-trash-dir?user=johnworth
+
+Response JSON:
+
+    {
+        "action" : "user-trash-dir",
+        "status" : "success",
+        "trash" : "/iplant/trash/home/proxy-user/johnworth"
+    }
+
