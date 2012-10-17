@@ -9,40 +9,40 @@
            [org.irods.jargon.core.pub.domain IRODSDomainObject]))
 
 ;;;Event Names
-(def root "root") ;done
-(def home "home") ;done
-(def file-exists "file-exists") ;done
-(def dir-exists "directory-exists") ;done
+(def root "root")
+(def home "home")
+(def file-exists "file-exists")
+(def dir-exists "directory-exists")
 (def stat-file "stat-file")
 (def stat-dir "stat-directory")
-(def download "download") ;done
+(def download "download")
 (def download-cart "download-cart")
 (def upload-cart "upload-cart")
-(def create-dir "create-directory") ;done
-(def list-dir "list-directory") ;done
-(def rename-dir "rename-directory") ;done
-(def rename-file "rename-file") ;done
+(def create-dir "create-directory")
+(def list-dir "list-directory")
+(def rename-dir "rename-directory")
+(def rename-file "rename-file")
 (def delete-dir "delete-directory")
 (def delete-file "delete-file")
-(def move-dir "move-directory") ;done
-(def move-file "move-file") ;done
-(def preview-file "preview-file") ;done
-(def file-manifest "file-manifest") ;done
-(def get-file-metadata "get-file-metadata") ;done
-(def set-file-metadata "set-file-metadata") ;done
-(def del-file-metadata "delete-file-metadata") ;done
-(def get-tree-urls "get-tree-urls") ;done
-(def set-tree-urls "set-tree-urls") ;done
-(def set-file-metadata-batch "set-file-metadata-batch") ;done
-(def get-dir-metadata "get-directory-metadata") ;done
-(def set-dir-metadata "set-directory-metadata") ;done
-(def del-dir-metadata "del-dir-metadata") ;done
-(def set-dir-metadata-batch "set-directory-metadata-batch") ;done
+(def move-dir "move-directory")
+(def move-file "move-file")
+(def preview-file "preview-file")
+(def file-manifest "file-manifest")
+(def get-file-metadata "get-file-metadata")
+(def set-file-metadata "set-file-metadata")
+(def del-file-metadata "delete-file-metadata")
+(def get-tree-urls "get-tree-urls")
+(def set-tree-urls "set-tree-urls")
+(def set-file-metadata-batch "set-file-metadata-batch")
+(def get-dir-metadata "get-directory-metadata")
+(def set-dir-metadata "set-directory-metadata")
+(def del-dir-metadata "del-dir-metadata")
+(def set-dir-metadata-batch "set-directory-metadata-batch")
 (def share-file "share-file")
 (def share-dir "share-directory")
 (def unshare-file "unshare-file")
 (def unshare-dir "unshare-directory")
-(def quota-event "quota")
+(def quota "quota")
 (def get-user-file-perms "get-user-file-permissions")
 (def get-user-dir-perms "get-user-directory-permissions")
 (def restore-file "restore-file")
@@ -63,7 +63,7 @@
 (defn avu?
   "Predicate that returns true if obj represents an iRODS AVU. This means
    that it is a map that has the following keys: :attr :value :unit :path."
-  [obj]
+  [cm obj]
   (and (map? obj)
        (contains? obj :attr)
        (contains? obj :value)
@@ -74,7 +74,7 @@
   "Predicate that returns true if obj represents a directory listing. That
    means that is has the following keys at the top level: :id :label
    :permissions :date-created :date-modified."
-  [obj]
+  [cm obj]
   (and (map? obj)
         (contains? obj :id)
         (contains? obj :label)
@@ -82,26 +82,41 @@
         (contains? obj :date-created)
         (contains? obj :date-modified)))
 
+(defn cart?
+  "Predicate that determines if the obj is a shopping cart."
+  [cm obj]
+  (and (map? obj)
+       (contains? obj :action)
+       (or (= (:action obj) "download")
+           (= (:action obj) "upload"))))
+
+(defn path?
+  [cm obj]
+  (and (string? obj)
+       (or (jg/is-dir? cm obj)
+           (jg/is-file? cm obj))))
+
 (defn determine-category
   "Figures out the provenance category that is appropriate for the object
    passed in. 'cm' is a clj-jargon context map."
   [cm obj]
   (cond
-   (and (string? obj)
-        (jg/is-dir? cm obj))              irods-dir
+   (and (path? cm obj)
+        (jg/is-dir? cm obj))  irods-dir
         
-   (and (string? obj)
-        (jg/is-file? cm obj))             irods-file
+   (and (path? cm obj)
+        (jg/is-file? cm obj)) irods-file
         
    (and (map? obj)
-        (avu? obj))                       irods-avu
+        (avu? cm obj))        irods-avu
 
    (and (map? obj)
-        (listing? obj))                   irods-listing
+        (listing? cm obj))    irods-listing
         
-   (instance? FileShoppingCart obj)       irods-cart
+   (and (map? obj)
+        (cart? cm obj))       irods-cart
         
-   :else                                  nil))
+   :else                      nil))
 
 (defn irods-domain-obj
   "Returns a domain object for obj.
@@ -111,21 +126,21 @@
 "
   [cm obj]
   (cond
-   (and (string? obj)
+   (and (path? cm obj)
         (jg/is-dir? cm obj))
    (jg/collection cm obj)
 
-   (and (string? obj)
+   (and (path? cm obj)
         (jg/is-file? cm obj))
    (jg/data-object cm obj)
 
-   (instance? FileShoppingCart obj)
+   (cart? cm obj)
    obj
 
-   (avu? obj)
+   (avu? cm obj)
    obj
 
-   (listing? obj)
+   (listing? cm obj)
    obj
    
    :else obj))
@@ -134,30 +149,28 @@
   [cm user obj]
   (let [domain-obj (irods-domain-obj cm obj)]
     (cond
-     (and (not (map? domain-obj))
-          (instance? domain-obj IRODSDomainObject))
+     (path? cm obj)
      (str (.. domain-obj getCreatedAt getTime)
           "||"
-          (cfg/irods-zone)          
+          (cfg/irods-zone)
           "||"
           (.. domain-obj getAbsolutePath))
-
-     (and (not (map? domain-obj))
-          (instance? domain-obj FileShoppingCart))
+     
+     (cart? cm domain-obj)
      (str (.getTime (java.util.Date.))
           "||"
           user
           "||"
           (cfg/irods-zone))
 
-     (avu? obj)
+     (avu? cm obj)
      (str (.getTime (java.util.Date.))
           "||"
           (:path obj)
           "||"
           (:attr obj) "-" (:value obj) "-" (:unit obj))
 
-     (listing? obj)
+     (listing? cm obj)
      (str (.getTime (java.util.Date.))
           "||"
           (:id obj))
@@ -169,22 +182,20 @@
   [cm user obj]
   (let [domain-obj (irods-domain-obj cm obj)]
     (cond
-     (and (not (map? domain-obj))
-          (instance? domain-obj IRODSDomainObject))
+     (path? cm obj)
      (f/basename (.getAbsolutePath domain-obj))
 
-     (and (not (map? domain-obj))
-          (instance? domain-obj FileShoppingCart))
+     (cart? cm domain-obj)
      (str "shopping-cart-" user)
 
-     (avu? domain-obj)
+     (avu? cm domain-obj)
      (str (:attr domain-obj)
           "-"
           (:value domain-obj)
           "-"
           (:unit domain-obj))
 
-     (listing? domain-obj)
+     (listing? cm domain-obj)
      (str (:id domain-obj))
 
      :else
@@ -260,5 +271,6 @@
   [cm user obj event & {:keys [parent-uuid data]}]
   (let [obj-id  (register cm user obj parent-uuid)
         obj-cat (determine-category cm obj)]
+    (log/warn (str "Object: " obj "\tID: " obj-id  "\tCategory: " obj-cat))
     (send-provenance cm user obj-id event obj-cat :data data)
     obj))
