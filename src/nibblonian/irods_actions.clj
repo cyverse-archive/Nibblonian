@@ -73,24 +73,44 @@
   [stat]
   (str (.getObjSize stat)))
 
+(defn sharing? [abs] (= (irods-home) abs))
+(defn community? [abs] (= (community-data) abs))
+(defn trash-base-dir [] (ft/path-join "/" (irods-zone) "trash" "home" (irods-user)))
+(defn user-trash-dir [user] (ft/path-join (trash-base-dir) user))
+
+(defn user-trash-dir?
+  [user path-to-check]
+  (= (ft/rm-last-slash path-to-check)
+     (ft/rm-last-slash (user-trash-dir user))))
+
+(defn id->label
+  "Generates a label given a listing ID (read as absolute path)."
+  [user id]
+  (cond
+   (user-trash-dir? user id)
+   "Trash"
+
+   (sharing? (ft/add-trailing-slash id))
+   "Sharing"
+
+   (community? id)
+   "Community Data"
+
+   :else
+   (ft/basename id)))
+
 (defn dir-map-entry
-  ([cm user list-entry]
-     (dir-map-entry
-      cm
-      user
-      list-entry
-      (ft/basename (.getAbsolutePath list-entry))))
-  ([cm user list-entry label]
-     (let [abspath (.getAbsolutePath list-entry)
-           stat    (.initializeObjStatForFile list-entry)] 
-       (hash-map      
-        :id            abspath
-        :label         label
-        :permissions   (collection-perm-map cm user abspath)
-        :hasSubDirs    true
-        :date-created  (date-created-from-stat stat)
-        :date-modified (date-mod-from-stat stat)
-        :file-size     (size-from-stat stat)))))
+  [cm user list-entry]
+  (let [abspath (.getAbsolutePath list-entry)
+        stat    (.initializeObjStatForFile list-entry)] 
+    (hash-map      
+     :id            abspath
+     :label         (id->label user abspath)
+     :permissions   (collection-perm-map cm user abspath)
+     :hasSubDirs    true
+     :date-created  (date-created-from-stat stat)
+     :date-modified (date-mod-from-stat stat)
+     :file-size     (size-from-stat stat))))
 
 (defn file-map-entry
   [cm user list-entry]
@@ -147,8 +167,8 @@
                         %1)]
     (-> {}
         (assoc
-            :id path
-            :label         (ft/basename path)
+            :id            path
+            :label         (id->label user path)
             :hasSubDirs    true
             :date-created  (created-date cm path)
             :date-modified (lastmod-date cm path)
@@ -192,12 +212,9 @@
 
 (defn root-listing
   ([user root-path]
-     (root-listing user root-path (ft/basename root-path)))
+     (root-listing user root-path false))
   
-  ([user root-path label]
-     (root-listing user root-path label false))
-  
-  ([user root-path label set-own?]
+  ([user root-path set-own?]
     (with-jargon (jargon-config) [cm]
       (validators/user-exists cm user)
       (validators/path-exists cm root-path)
@@ -207,11 +224,8 @@
 
       (validators/path-readable cm user root-path)
       
-      (let [rlisting (dir-map-entry cm user (file cm root-path) label)]
+      (let [rlisting (dir-map-entry cm user (file cm root-path))]
         (prov/log-provenance cm user rlisting prov/root)))))
-
-(defn user-trash-dir
-  [user])
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
@@ -730,8 +744,7 @@
        false
        false))
     
-    (assoc (sharing-data cm user root-dir inc-files filter-files)
-      :label "Shared")))
+    (assoc (sharing-data cm user root-dir inc-files filter-files) :label "Shared")))
 
 (defn get-quota
   [user]
@@ -755,11 +768,11 @@
      "")
     name)))
 
-(defn user-trash-dir
+(defn user-trash
   [user]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
-    {:trash (ft/path-join "/" (irods-zone) "trash/home/" (irods-user) user)}))
+    {:trash (user-trash-dir user)}))
 
 (defn restoration-path
   [user path name user-trash]

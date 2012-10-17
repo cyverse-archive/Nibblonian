@@ -78,17 +78,6 @@
         files-to-filter (conj (filter-files) comm-dir user-dir public-dir)]
     (irods-actions/shared-root-listing user (irods-home) inc-files files-to-filter)))
 
-(defn trash-base-dir
-  []
-  (utils/path-join "/" (irods-zone) "trash" "home" (irods-user)))
-
-(defn user-trash-dir [user] (utils/path-join (trash-base-dir) user))
-
-(defn user-trash-dir?
-  [user path-to-check]
-  (= (utils/rm-last-slash path-to-check)
-     (utils/rm-last-slash (user-trash-dir user))))
-
 (defn do-directory
   "Performs a list-dirs command.
 
@@ -115,7 +104,7 @@
     (let [user      (query-param request "user")
           path      (query-param request "path")
           inc-files (include-files? request)]
-      (if (user-trash-dir? user path)
+      (if (irods-actions/user-trash-dir? user path)
         (dir-list user path inc-files true)
         (dir-list user path inc-files)))))
 
@@ -128,12 +117,13 @@
   
   (let [user  (query-param request "user")
         uhome (utils/path-join (irods-home) user)
-        user-root-list (partial irods-actions/root-listing user)]
+        user-root-list (partial irods-actions/root-listing user)
+        user-trash-dir (irods-actions/user-trash-dir user)]
     {:roots
      [(user-root-list uhome)
-      (user-root-list (community-data) "Community Data")
-      (user-root-list (irods-home) "Sharing")
-      (user-root-list (user-trash-dir user) "Trash" true)]}))
+      (user-root-list (community-data))
+      (user-root-list (irods-home))
+      (user-root-list user-trash-dir true)]}))
 
 (defn do-rename
   "Performs a rename.
@@ -604,7 +594,7 @@
      {:user user
       :paths (get-in request [:body :paths])
       #_(:name (get-in request [:body :name]))
-      :user-trash (user-trash-dir user)})))
+      :user-trash (irods-actions/user-trash-dir user)})))
 
 (defn do-copy
   [request]
@@ -645,4 +635,4 @@
     (bad-query "user"))
 
   (let [user (query-param request "user")]
-    (irods-actions/user-trash-dir user)))
+    (irods-actions/user-trash user)))
