@@ -208,7 +208,7 @@
       (validators/path-readable cm user path)
       
       (let [listing (gen-listing cm user path filter-files include-files)]
-        (prov/log-provenance cm user listing prov/list-dir)))))
+        (prov/log-provenance cm user listing prov/list-dir :data listing)))))
 
 (defn root-listing
   ([user root-path]
@@ -225,7 +225,7 @@
       (validators/path-readable cm user root-path)
       
       (let [rlisting (dir-map-entry cm user (file cm root-path))]
-        (prov/log-provenance cm user rlisting prov/root)))))
+        (prov/log-provenance cm user rlisting prov/root :data rlisting)))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
@@ -245,7 +245,7 @@
     
     (mkdir cm path)
     (set-owner cm path user)
-    (prov/log-provenance cm user path prov/create-dir)
+    (prov/log-provenance cm user path prov/create-dir :data {:create-dir path})
     {:path path :permissions (collection-perm-map cm user path)}))
 
 (defn- del
@@ -270,7 +270,7 @@
                  :paths (filterv home-matcher paths)}))
       
       (doseq [p paths]
-        (prov/log-provenance cm user p prov-event)
+        (prov/log-provenance cm user p prov-event :data {:deleted p})
         (delete cm p))
       
       {:paths paths})))
@@ -383,7 +383,8 @@
     (validators/path-is-file cm path)
 
     (let [file-preview (gen-preview cm path size)]
-      (prov/log-provenance cm user path prov/preview-file)
+      (prov/log-provenance cm user path prov/preview-file
+                           :data {:path path})
       file-preview)))
 
 (defn user-home-dir
@@ -396,7 +397,7 @@
        (let [user-home (ft/path-join staging-dir user)]
          (if (not (exists? cm user-home))
            (mkdirs cm user-home))
-         (prov/log-provenance cm user user-home prov/home)
+         (prov/log-provenance cm user user-home prov/home :data {:home-dir user-home})
          user-home))))
 
 (defn metadata-get
@@ -411,7 +412,10 @@
           parent-uuid (prov/register-parent cm user path)
           logged-avu  (merge avu {:path path})
           prov-event  (if (is-dir? cm path) prov/get-dir-metadata prov/get-file-metadata)]
-      (prov/log-provenance cm user logged-avu prov-event :parent-uuid parent-uuid)
+      (prov/log-provenance cm user logged-avu prov-event
+                           :parent-uuid parent-uuid
+                           :data {:path path
+                                  :metadata avu})
       {:metadata avu})))
 
 (defn get-tree
@@ -426,7 +430,10 @@
           logged-avu  (merge avu {:path path})
           value       (:value avu)]
       (log/warn value)
-      (prov/log-provenance cm user logged-avu prov/get-tree-urls :parent-uuid parent-uuid)
+      (prov/log-provenance cm user logged-avu prov/get-tree-urls
+                           :parent-uuid parent-uuid
+                           :data {:path path
+                                  :tree avu})
       (json/read-json value))))
 
 (defn metadata-set
@@ -445,7 +452,10 @@
           parent-uuid (prov/register-parent cm user path)
           prov-event  (if (is-dir? cm path) prov/set-dir-metadata prov/get-dir-metadata)]
       (set-metadata cm (ft/rm-last-slash path) (:attr avu-map) (:value avu-map) new-unit)
-      (prov/log-provenance cm user logged-avu prov-event :parent-uuid parent-uuid)
+      (prov/log-provenance cm user logged-avu prov-event
+                           :parent-uuid parent-uuid
+                           :data {:path path
+                                  :avu avu-map})
       {:path (ft/rm-last-slash path) :user user})))
 
 (defn encode-str
@@ -475,13 +485,21 @@
                         prov/set-file-metadata-batch)]
       (doseq [del (:delete adds-dels)]
         (when (attribute? cm new-path del)
-          (workaround-delete cm new-path del)
-          (delete-metadata cm new-path del)))
+          (let [logged-avu (merge del {:path path})]
+            (workaround-delete cm new-path del)
+            (delete-metadata cm new-path del)
+            (prov/log-provenance cm user logged-avu
+                                 :parent-uuid parent-uuid
+                                 :data {:path path
+                                        :avu del}))))
       
       (doseq [avu (:add adds-dels)]
         (let [new-unit    (if (string/blank? (:unit avu)) IPCRESERVED (:unit avu))
               logged-avu  (merge avu {:path path})]
-          (prov/log-provenance cm user logged-avu prov-event :parent-uuid parent-uuid)
+          (prov/log-provenance cm user logged-avu prov-event
+                               :parent-uuid parent-uuid
+                               :data {:path path
+                                      :avu avu})
           (set-metadata cm new-path (:attr avu) (:value avu) new-unit)))
       {:path (ft/rm-last-slash path) :user user})))
 
@@ -507,7 +525,10 @@
         logged-avu (merge avu {:path path})
         parent-uuid (prov/register-parent cm user path)]
     (set-metadata cm path (:attr avu) (:value avu) (:unit avu))
-    (prov/log-provenance cm user logged-avu prov/set-tree-urls :parent-uuid parent-uuid)))
+    (prov/log-provenance cm user logged-avu prov/set-tree-urls
+                         :parent-uuid parent-uuid
+                         :data {:path path
+                                :avu avu})))
 
 (defn set-tree
   [user path tree-urls]
@@ -532,7 +553,10 @@
           prov-event  (if (is-dir? cm user path) prov/del-dir-metadata prov/set-dir-metadata)]  
       (workaround-delete cm path attr)
       (delete-metadata cm path attr)
-      (prov/log-provenance cm user logged-avu prov-event :parent-uuid parent-uuid))
+      (prov/log-provenance cm user logged-avu prov-event
+                           :parent-uuid parent-uuid
+                           :data {:path path
+                                  :avu avu}))
     {:path path :user user}))
 
 (defn path-exists?
@@ -540,7 +564,8 @@
   (with-jargon (jargon-config) [cm]
     (let [retval     (exists? cm path)
           prov-event (if (is-dir? cm path) prov/dir-exists prov/file-exists)]
-      (prov/log-provenance cm user path prov-event))))
+      (prov/log-provenance cm user path prov-event :data {:path path})
+      retval)))
 
 (defn path-stat
   [user path]
@@ -548,7 +573,8 @@
     (validators/path-exists cm path)
     (let [prov-event (if (is-dir? cm path) prov/stat-dir prov/stat-file)
           retval     (stat cm path)]
-      (prov/log-provenance cm user path prov-event))))
+      (prov/log-provenance cm user path prov-event :data {:path path})
+      retval)))
 
 (defn- format-tree-urls
   [treeurl-maps]
@@ -558,9 +584,7 @@
 
 (defn preview-url
   [user path]
-  (str "file/preview?user=" (cdc/url-encode user) 
-       "&path=" 
-       (cdc/url-encode path)))
+  (str "file/preview?user=" (cdc/url-encode user) "&path=" (cdc/url-encode path)))
 
 (defn content-type
   [cm path]
@@ -589,7 +613,7 @@
     (validators/path-readable cm user file-path)
     
     (let [retval (if (zero? (file-size cm file-path)) "" (input-stream cm file-path))]
-      (prov/log-provenance cm user file-path prov/download)
+      (prov/log-provenance cm user file-path prov/download :data {:path file-path})
       retval)))
 
 (defn download
@@ -675,7 +699,8 @@
           
           (let [prov-event (if (is-dir? cm fpath) prov/share-dir prov/share-file)]
             (prov/log-provenance cm user fpath prov-event :data {:path fpath
-                                                                 :shared-with share-with})))))
+                                                                 :shared-with share-with
+                                                                 :permissions perms})))))
     
     {:user share-withs
      :path fpaths
@@ -717,13 +742,14 @@
             (loop [dir-path parent-path]
               (when-not (or (= dir-path base-dir)
                             (contains-accessible-obj? cm unshare-with dir-path))
-                
                 (remove-permissions cm unshare-with dir-path)
                 
                 (let [prov-event (if (is-dir? cm fpath) prov/unshare-dir prov/unshare-file)]
-                  (prov/log-provenance cm user fpath prov-event :data {:path fpath
-                                                                      :unshared-with unshare-with}))
+                  (prov/log-provenance cm user fpath prov-event
+                                       :data {:path fpath
+                                              :unshared-with unshare-with}))
                 (recur (ft/dirname dir-path)))))))))
+  
   {:user unshare-withs
    :path fpaths})
 
@@ -736,13 +762,7 @@
   
   (with-jargon (jargon-config) [cm]
     (when-not (is-readable? cm user root-dir)
-      (set-permissions
-       cm
-       user
-       (ft/rm-last-slash root-dir)
-       true
-       false
-       false))
+      (set-permissions cm user (ft/rm-last-slash root-dir) true false false))
     
     (assoc (sharing-data cm user root-dir inc-files filter-files) :label "Shared")))
 
@@ -762,10 +782,8 @@
   [path name user-trash]
   (trim-leading-slash
    (ft/path-join
-    (or
-     (ft/dirname
-      (string/replace-first path (ft/add-trailing-slash user-trash) ""))
-     "")
+    (or (ft/dirname (string/replace-first path (ft/add-trailing-slash user-trash) ""))
+        "")
     name)))
 
 (defn user-trash

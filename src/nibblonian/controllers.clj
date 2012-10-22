@@ -457,7 +457,7 @@
   
   (let [paths (:paths (:body request))
         user  (query-param request "user")]
-    {:paths (apply conj {} (map #(hash-map %1 (irods-actions/path-exists? %1)) paths))}))
+    {:paths (apply conj {} (map #(hash-map %1 (irods-actions/path-exists? user %1)) paths))}))
 
 (defn do-stat
   "Returns data object status information for one or more paths."
