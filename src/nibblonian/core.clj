@@ -55,29 +55,15 @@
   
   (POST "/directory/create" request
         (trap "create"  do-create request))
+
+  (POST "/rename" request
+        (trap "rename" do-rename request))
   
-  (POST "/directory/rename" request
-        (trap "rename-directory" 
-               do-rename request irods-actions/rename-directory))
-  
-  (POST "/file/rename" request
-        (trap "rename-file"  do-rename request irods-actions/rename-file))
-  
-  (POST "/directory/delete" request
-        (trap "delete-dirs" 
-               do-delete request irods-actions/delete-dirs))
-  
-  (POST "/file/delete" request
-        (trap "delete-files"
-               do-delete request irods-actions/delete-files))
-  
-  (POST "/directory/move" request
-        (trap "move-dirs" 
-               do-move request irods-actions/move-directories))
-  
-  (POST "/file/move" request
-        (trap "move-files" 
-               do-move request irods-actions/move-files))
+  (POST "/delete" request
+        (trap "delete" do-delete request))
+
+  (POST "/move" request
+        (trap "move" do-move request))
   
   (GET "/file/download" request
        (trap "download" 

@@ -136,7 +136,7 @@
      user - Query string value containing a username.
      dest - JSON field from the body telling what to rename the file to.
      source - JSON field from the body telling which file to rename."
-  [request rename-func]
+  [request]
   (log/debug "do-rename")
   
   (when-not (query-param? request "user")
@@ -154,7 +154,7 @@
     (when (super-user? user)
       (throw+ {:error_code ERR_NOT_AUTHORIZED           
                :user user}))
-    (rename-func user source dest)))
+    (irods-actions/rename-path user source dest)))
 
 (defn do-delete
   "Performs a delete.
@@ -166,7 +166,7 @@
    Request Parameters:
      user - Query string value containing a username.
      paths - JSON field containing a list of paths that should be deleted."
-  [request delete-func]
+  [request]
   (log/debug "do-delete")
   
   (when-not (query-param? request "user")
@@ -183,7 +183,7 @@
     (when (super-user? user)
       (throw+ {:error_code ERR_NOT_AUTHORIZED
                :user user}))
-    (delete-func user paths)))
+    (irods-actions/delete-paths user paths)))
 
 (defn do-move
   "Performs a move.
@@ -196,7 +196,7 @@
      user - Query string value containing a username.
      sources - JSON field containing a list of paths that should be moved.
      dest - JSON field containing the destination path."
-  [request move-func]
+  [request]
   (log/debug "do-move")
 
   (when-not (query-param? request "user")
@@ -215,7 +215,7 @@
     (when (super-user? user)
       (throw+ {:error_code ERR_NOT_AUTHORIZED :user user}))
     
-    (move-func user sources dest)))
+    (irods-actions/move-paths user sources dest)))
 
 (defn do-create
   "Performs a directory creation.

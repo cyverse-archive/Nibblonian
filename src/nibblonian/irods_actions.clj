@@ -248,7 +248,7 @@
     (prov/log-provenance cm user path prov/create-dir :data {:create-dir path})
     {:path path :permissions (collection-perm-map cm user path)}))
 
-(defn- del
+(defn delete-paths
   "Performs some validation and calls delete.
 
    Parameters:
@@ -256,46 +256,37 @@
      paths - a sequence of strings containing directory paths.
 
    Returns a map describing the success or failure of the deletion command."
-  [user paths type-func? type-error prov-event]
+  [user paths]
   (let [home-matcher #(= (str "/" (irods-zone) "/home/" user)
                          (ft/rm-last-slash %1))] 
     (with-jargon (jargon-config) [cm]
       (validators/user-exists cm user)
       (validators/all-paths-exist cm paths)
       (validators/all-paths-writeable cm user paths)
-      (validators/paths-satisfy-predicate cm paths type-func? type-error)
       
       (when (some true? (mapv home-matcher paths))
         (throw+ {:error_code ERR_NOT_AUTHORIZED 
                  :paths (filterv home-matcher paths)}))
       
       (doseq [p paths]
-        (prov/log-provenance cm user p prov-event :data {:deleted p})
-        (delete cm p))
+        (let [prov-event (if (is-dir? cm p) prov/delete-dir prov/delete-file)]
+          (prov/log-provenance cm user p prov-event :data {:deleted p})
+          (delete cm p)))
       
       {:paths paths})))
-
-(defn delete-dirs
-  [user paths]
-  (del user paths is-dir? ERR_NOT_A_FOLDER prov/delete-dir))
-
-(defn delete-files
-  [user paths]
-  (del user paths is-file? ERR_NOT_A_FILE prov/delete-file))
 
 (defn source->dest
   [source-path dest-path]
   (ft/path-join dest-path (ft/basename source-path)))
 
-(defn- mv
+(defn move-paths
   "Moves directories listed in 'sources' into the directory listed in 'dest'. This
    works by calling move and passing it move-dir."
-  [user sources dest type-func? type-error prov-event]
+  [user sources dest]
   (with-jargon (jargon-config) [cm]
     (let [path-list  (conj sources dest)
-          all-paths  (apply merge (mapv #(hash-map (source->dest %1 dest) %2)) sources)
-          dest-paths (keys all-paths)
-          types?     (every? true? (map #(type-func? cm %) sources))]
+          all-paths  (apply merge (mapv #(hash-map (source->dest %1 dest) %1) sources))
+          dest-paths (keys all-paths)]
       (validators/user-exists cm user)
       (validators/all-paths-exist cm sources)
       (validators/all-paths-exist cm [dest])
@@ -303,55 +294,40 @@
       (validators/all-paths-writeable cm user sources)
       (validators/path-writeable cm user dest)
       (validators/no-paths-exist cm dest-paths)
-      (validators/paths-satisfy-predicate cm sources type-func? type-error)
       
       (move-all cm sources dest)
       
       (doseq [dest-path dest-paths]
         (let [source-path (get all-paths dest-path)
-              parent-uuid (prov/register-parent cm user source-path)]
+              parent-uuid (prov/register-parent cm user source-path)
+              prov-event  (if (is-dir? cm dest-path) prov/move-dir prov/move-file)]
           (prov/log-provenance cm user dest-path prov-event
                                :data {:dest-path dest-path
                                       :source-path source-path})))
       
       {:sources sources :dest dest})))
 
-(defn move-directories
-  [user sources dest]
-  (mv user sources dest is-dir? ERR_NOT_A_FOLDER prov/move-dir))
-
-(defn move-files
-  [user sources dest]
-  (mv user sources dest is-file? ERR_NOT_A_FILE prov/move-file))
-
-(defn- rname
+(defn rename-path
   "High-level file renaming. Calls rename-func, passing it file-rename as the mv-func param."
-  [user source dest type-func? type-error prov-event]
+  [user source dest]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     (validators/path-exists cm source)
     (validators/path-writeable cm user source)
-    (validators/path-satisfies-predicate cm source type-func? type-error)
     (validators/path-not-exists cm dest)
     
     (let [result      (move cm source dest)
           parent-uuid (prov/register-parent cm user source)
-          retval      {:source source :dest dest :user user}]
+          retval      {:source source :dest dest :user user}
+          prov-event  (if (is-dir? cm source) prov/rename-dir prov/rename-file)]
       (when-not (nil? result)
         (throw+ {:error_code ERR_INCOMPLETE_RENAME
                  :paths result
                  :user user}))
       (prov/log-provenance cm user dest prov-event
                            :parent-uuid parent-uuid
-                           :data {:source source :dest dest :user user}))))
-
-(defn rename-file
-  [user source dest]
-  (rname user source dest is-file? ERR_NOT_A_FILE prov/rename-file))
-
-(defn rename-directory
-  [user source dest]
-  (rname user source dest is-dir? ERR_NOT_A_FOLDER prov/rename-dir))
+                           :data {:source source :dest dest :user user})
+      {:source source :dest dest :user user})))
 
 (defn- preview-buffer
   [cm path size]
