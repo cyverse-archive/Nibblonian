@@ -8,19 +8,19 @@ Setting Metadata
 ------------------------------------
 Note the single-quotes around the request URL in the curl command.
 
-URL Path: /metadata
+_URL Path_: /metadata
 
-HTTP Method: POST
+_HTTP Method_: POST
 
-Action: "set-metadata"
+_Action_: "set-metadata"
 
-Error codes: ERR_INVALID_JSON, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
+_Error codes_: ERR_INVALID_JSON, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
-Request Query Parameters:
+_Request Query Parameters_:
 * user - iRODS username of the user making the request.
 * path - The iRODS path to the file or directory that the metadata is associated with.    
 
-Request Body:
+_Request Body_:
 
     {
         "attr" : "avu_name", 
@@ -28,7 +28,7 @@ Request Body:
         "unit" : "avu_unit"
     }
 
-Response:
+_Response_:
 
     {
         "action" : "set-metadata",
@@ -37,7 +37,7 @@ Response:
         "user"   : "johnw"
     }
 
-Curl command:
+_Curl command_:
 
     curl -H "Content-Type:application/json" -d '{"attr" : "avu_name", "value" : "avu_value", "unit" : "avu_unit"}' 'http://127.0.0.1:3000/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
 
@@ -155,6 +155,6 @@ Response:
 
 Curl command:
 
-    curl -X DELETE 'http://127.0.0.1:3000/file/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt&attr=avu_name'
+    curl -X DELETE 'http://127.0.0.1:3000/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt&attr=avu_name'
 
 
