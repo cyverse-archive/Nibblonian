@@ -71,51 +71,35 @@
   
   (GET "/file/preview" request
        (trap "preview" 
-              do-preview request))
+             do-preview request))
   
   (GET "/file/manifest" request
        (trap "manifest" 
-              do-manifest request))
-  
-  (GET "/file/metadata" request
-       (trap "get-metadata" 
-              do-metadata-get request))
+             do-manifest request))
   
   (GET "/file/tree-urls" request
        (trap "get-tree-urls" 
-              do-tree-get request))
-  
-  (GET "/directory/metadata" request
-       (trap "get-metadata" 
-              do-metadata-get request))
-  
-  (POST "/file/metadata" request
-        (trap "set-metadata" 
-               do-metadata-set request))
-  
-  (POST "/file/metadata-batch" request
-        (trap "set-metadata-batch" 
-               do-metadata-batch-set request))
+             do-tree-get request))
   
   (POST "/file/tree-urls" request
         (trap "set-tree-urls" 
-               do-tree-set request))
+              do-tree-set request))
   
-  (POST "/directory/metadata" request
+  (GET "/metadata" request
+       (trap "get-metadata" 
+             do-metadata-get request))
+  
+  (POST "/metadata" request
         (trap "set-metadata" 
-               do-metadata-set request))
+              do-metadata-set request))
   
-  (POST "/directory/metadata-batch" request
+  (DELETE "/metadata" request
+          (trap "delete-metadata" 
+                do-metadata-delete request))
+
+  (POST "/metadata-batch" request
         (trap "set-metadata-batch" 
-               do-metadata-batch-set request))
-  
-  (DELETE "/file/metadata" request
-          (trap "delete-metadata" 
-                 do-metadata-delete request))
-  
-  (DELETE "/directory/metadata" request
-          (trap "delete-metadata" 
-                 do-metadata-delete request))
+              do-metadata-batch-set request))
   
   (POST "/share" request
         (trap "share" do-share request))
