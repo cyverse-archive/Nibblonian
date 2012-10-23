@@ -8,19 +8,19 @@ Setting Metadata
 ------------------------------------
 Note the single-quotes around the request URL in the curl command.
 
-_URL Path_: /metadata
+__URL Path__: /metadata
 
-_HTTP Method_: POST
+__HTTP Method__: POST
 
-_Action_: "set-metadata"
+__Action__: "set-metadata"
 
-_Error codes_: ERR_INVALID_JSON, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
+__Error codes__: ERR_INVALID_JSON, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
-_Request Query Parameters_:
+__Request Query Parameters__:
 * user - iRODS username of the user making the request.
 * path - The iRODS path to the file or directory that the metadata is associated with.    
 
-_Request Body_:
+__Request Body__:
 
     {
         "attr" : "avu_name", 
@@ -28,7 +28,7 @@ _Request Body_:
         "unit" : "avu_unit"
     }
 
-_Response_:
+__Response__:
 
     {
         "action" : "set-metadata",
@@ -37,26 +37,26 @@ _Response_:
         "user"   : "johnw"
     }
 
-_Curl command_:
+__Curl command__:
 
     curl -H "Content-Type:application/json" -d '{"attr" : "avu_name", "value" : "avu_value", "unit" : "avu_unit"}' 'http://127.0.0.1:3000/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
 
 
 Setting Metadata as a Batch Operation
 -------------------------------------
-URL Path: /metadata-batch
+__URL Path__: /metadata-batch
 
-HTTP Method: POST
+__HTTP Method__: POST
 
-Action: "set-metadata-batch"
+__Action__: "set-metadata-batch"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
+__Error codes__: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
-Request Query Parameters:
+__Request Query Parameters__:
 * user - The iRODS username of the user making the request.
 * path - The path to the file or directory being operated on.
 
-Request Body:
+__Request Body__:
 
     { 
         "add": [ 
@@ -79,7 +79,7 @@ Request Body:
     
 Both "add" and "delete" lists must be present even if they are empty.
 
-Response:
+__Response__:
 
     {
         "action" : "set-metadata-batch",
@@ -88,28 +88,26 @@ Response:
         "user"   :" wregglej"
     }
 
-Curl command:
+__Curl Command__:
 
     curl -H "Content-Type:application/json" -d '{"add" : [{"attr" : "attr", "value" : "value", "unit" : "unit"}], "delete" : ["del1", "del2"]}' 'http://127.0.0.1:3000/metadata-batch?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
     
 
 Getting Metadata
 ------------------------------------
-URL Path: /metadata
+__URL Path__: /metadata
 
-HTTP Method: GET
+__HTTP Method__: GET
 
-Action: "get-metadata"
+__Action__: "get-metadata"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE, ERR_NOT_A_USER
+__Error codes__: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE, ERR_NOT_A_USER
 
-Note the single-quotes around the request URL in the curl command. Also note that the metadata returned in the "metadata" field is in a list, since this command returns all of the metadata associated with a file or directory.
-
-Request Query Parameters:
+__Request Query Parameters__:
 * user - The iRODS username of the user making the request.
 * path - The path to the file or directory being operated on.
 
-Response:
+__Response__:
 
     {
         "action": "get-metadata",
@@ -123,28 +121,26 @@ Response:
         ]
     }
 
-Curl command:
+__Curl Command__:
 
     curl 'http://127.0.0.1:3000/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
 
 
 Deleting File and Directory Metadata
 ------------------------------------
-URL Path: /metadata
+__URL Path__: /metadata
 
-HTTP Method: DELETE
+__HTTP Method__: DELETE
 
-Action: "delete-metadata"
+__Action__: "delete-metadata"
 
-Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
+__Error Codes__: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
-As before, note the single-quotes around the request URLs in the curl command. To get the directory version of the command, replace the path portion of the URL with '/directory/metadata' and make sure that the path indicated in the query portion of the URL points to a directory.
-
-Request Query Parameters:
+__Request Query Parameters__:
 * user - The iRODS username of the user making the request.
 * path - The path to the file or directory being operated on.
 
-Response:
+__Response__:
 
     {
         "action":"delete-metadata",
@@ -153,7 +149,7 @@ Response:
         "user":"johnw"
     }
 
-Curl command:
+__Curl Command__:
 
     curl -X DELETE 'http://127.0.0.1:3000/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt&attr=avu_name'
 
