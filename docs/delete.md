@@ -1,14 +1,24 @@
-Directory Deletion
-------------------
-Action: "delete-dirs"
+Deleting Files and/or Directories
+---------------------------------
+__URL Path__: /delete
 
-Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
+__HTTP Method__: POST
 
-Curl command:
+__Action__: "delete"
 
-    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/rods/test2"]}' http://127.0.0.1:3000/directory/delete?user=rods
+__Error Codes__: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
-Response:
+__Request Parameters__:
+* user - The iRODS username of the user making the request.
+
+__Request Body__:
+    {
+        "paths" : ["/tempZone/home/rods/test2"]
+    }
+
+"paths" can take a mix of files and directories.
+
+__Response__:
 
     {
         "action":"delete-dirs",
@@ -16,22 +26,10 @@ Response:
         "status" : "success"
     }
 
+__Curl Command__:
 
-File Deletion
--------------
-Action: "delete-files"
+    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/rods/test2"]}' http://127.0.0.1:3000/delete?user=rods
 
-Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
-Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"paths" : ["/tempZone/home/rods/test2"]}' http://127.0.0.1:3000/file/delete?user=rods
-
-Response:
-
-    {
-        "action":"delete-files",
-        "paths":["/tempZone/home/rods/test2"]
-        "status" : "success"
-    }
 
