@@ -1,20 +1,32 @@
-File and Directory Metadata
+Metadata
 ---------------------------
 
-The following commands allow the caller to set attributes on files in iRODS. iRODS attributes take the form of Attribute Value Unit triples associated with directories and files. Files/directories cannot have multiple AVUs with the same attribute name, so repeated POSTings of an AVU with the same attribute name will overwrite the old value.
+The following commands allow the caller to set and get attributes on files and directories in iRODS. iRODS attributes take the form of Attribute Value Unit triples associated with directories and files. Files/directories cannot have multiple AVUs with the same attribute name, so repeated POSTings of an AVU with the same attribute name will overwrite the old value.
 
 
-Setting File and Directory Metadata
+Setting Metadata
 ------------------------------------
-Note the single-quotes around the request URL in the curl command. To associate metadata with a directory, change the path portion of the request url to '/directory/metadata' (minus the quotes) and make sure that the path indicated in the query string is a directory instead of a file.
+Note the single-quotes around the request URL in the curl command.
+
+URL Path: /metadata
+
+HTTP Method: POST
 
 Action: "set-metadata"
 
 Error codes: ERR_INVALID_JSON, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
-Curl command:
+Request Query Parameters:
+* user - iRODS username of the user making the request.
+* path - The iRODS path to the file or directory that the metadata is associated with.    
 
-    curl -H "Content-Type:application/json" -d '{"attr" : "avu_name", "value" : "avu_value", "unit" : "avu_unit"}' 'http://127.0.0.1:3000/file/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
+Request Body:
+
+    {
+        "attr" : "avu_name", 
+        "value" : "avu_value", 
+        "unit" : "avu_unit"
+    }
 
 Response:
 
@@ -24,15 +36,27 @@ Response:
         "path"   : "\/iplant\/home\/johnw\/LICENSE.txt",
         "user"   : "johnw"
     }
-    
 
-Setting File and Directory Metadata Batch
------------------------------------------
+Curl command:
+
+    curl -H "Content-Type:application/json" -d '{"attr" : "avu_name", "value" : "avu_value", "unit" : "avu_unit"}' 'http://127.0.0.1:3000/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
+
+
+Setting Metadata as a Batch Operation
+-------------------------------------
+URL Path: /metadata-batch
+
+HTTP Method: POST
+
 Action: "set-metadata-batch"
 
 Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
-The endpoints for this command are /directory/metadata-batch and /file/metadata-batch. It accepts a POST request containing JSON in the following format:
+Request Query Parameters:
+* user - The iRODS username of the user making the request.
+* path - The path to the file or directory being operated on.
+
+Request Body:
 
     { 
         "add": [ 
@@ -55,10 +79,6 @@ The endpoints for this command are /directory/metadata-batch and /file/metadata-
     
 Both "add" and "delete" lists must be present even if they are empty.
 
-Curl command:
-
-    curl -H "Content-Type:application/json" -d '{"add" : [{"attr" : "attr", "value" : "value", "unit" : "unit"}], "delete" : ["del1", "del2"]}' 'http://127.0.0.1:3000/file/metadata-batch?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
-    
 Response:
 
     {
@@ -67,21 +87,27 @@ Response:
         "path"   : "\/iplant\/home\/wregglej\/LICENSE.txt",
         "user"   :" wregglej"
     }
+
+Curl command:
+
+    curl -H "Content-Type:application/json" -d '{"add" : [{"attr" : "attr", "value" : "value", "unit" : "unit"}], "delete" : ["del1", "del2"]}' 'http://127.0.0.1:3000/metadata-batch?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
     
 
-Getting File and Directory Metadata
+Getting Metadata
 ------------------------------------
+URL Path: /metadata
+
+HTTP Method: GET
+
 Action: "get-metadata"
 
 Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE, ERR_NOT_A_USER
 
 Note the single-quotes around the request URL in the curl command. Also note that the metadata returned in the "metadata" field is in a list, since this command returns all of the metadata associated with a file or directory.
 
-To get metadata associated with directories, change the path portion of the URL to '/directory/metadata' and make sure that the path listed in the query portion of the URL is actually a directory.
-
-Curl command:
-
-    curl 'http://127.0.0.1:3000/file/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
+Request Query Parameters:
+* user - The iRODS username of the user making the request.
+* path - The path to the file or directory being operated on.
 
 Response:
 
@@ -97,18 +123,26 @@ Response:
         ]
     }
 
+Curl command:
+
+    curl 'http://127.0.0.1:3000/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
+
 
 Deleting File and Directory Metadata
 ------------------------------------
+URL Path: /metadata
+
+HTTP Method: DELETE
+
 Action: "delete-metadata"
 
 Error codes: ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_NOT_A_USER
 
 As before, note the single-quotes around the request URLs in the curl command. To get the directory version of the command, replace the path portion of the URL with '/directory/metadata' and make sure that the path indicated in the query portion of the URL points to a directory.
 
-Curl command:
-
-    curl -X DELETE 'http://127.0.0.1:3000/file/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt&attr=avu_name'
+Request Query Parameters:
+* user - The iRODS username of the user making the request.
+* path - The path to the file or directory being operated on.
 
 Response:
 
@@ -118,3 +152,9 @@ Response:
         "path":"\/iplant\/home\/johnw\/LICENSE.txt",
         "user":"johnw"
     }
+
+Curl command:
+
+    curl -X DELETE 'http://127.0.0.1:3000/file/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt&attr=avu_name'
+
+
