@@ -1,39 +1,36 @@
-Directory Rename
-----------------
-Action: "rename-directory"
+Renaming a File or Directory
+----------------------------
+__URL Path__: /rename
 
-Error codes: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_INCOMPLETE_RENAME, ERR_NOT_A_USER
+__HTTP Method__: POST 
 
-Curl command:
+__Action__: "rename"
 
-    curl -H "Content-Type:application/json" -d '{"source" : "/tempZone/home/rods/test3", "dest" : "/tempZone/home/rods/test2"}' http://127.0.0.1:3000/directory/rename?user=rods
+__Error codes__: ERR_NOT_A_FOLDER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_INCOMPLETE_RENAME, ERR_NOT_A_USER
 
-Response:
+__Request Query Parameters__:
+* user - The iRODS username of the user making the request.
+
+__Request Body__:
+    {
+        "source" : "/tempZone/home/wregglej/test3", 
+        "dest" : "/tempZone/home/wregglej/test2"
+    }
+
+__Response__:
 
     {
         "action":"rename-directory",
-        "source":"/tempZone/home/rods/test3",
-        "dest":"/tempZone/home/rods/test2",
+        "source":"/tempZone/home/wregglej/test3",
+        "dest":"/tempZone/home/wregglej/test2",
         "status":"success"
     }
 
 
-File Rename
------------
-Action: "rename-file"
+__Curl Command__:
 
-Error codes: ERR_NOT_A_FILE, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_INCOMPLETE_RENAME, ERR_NOT_A_USER
+    curl -H "Content-Type:application/json" -d '{"source" : "/tempZone/home/wregglej/test3", "dest" : "/tempZone/home/wregglej/test2"}' http://127.0.0.1:3000/rename?user=wregglej
 
-Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"source" : "/tempZone/home/rods/test3", "dest" : "/tempZone/home/rods/test2"}' http://127.0.0.1:3000/file/rename?user=rods
 
-Response:
-
-    {
-        "action":"rename-file",
-        "source":"/tempZone/home/rods/test3",
-        "dest":"/tempZone/home/rods/test2",
-        "status":"success"
-    }
 
