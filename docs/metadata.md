@@ -37,7 +37,7 @@ __Response__:
         "user"   : "johnw"
     }
 
-__Curl command__:
+__Curl Command__:
 
     curl -H "Content-Type:application/json" -d '{"attr" : "avu_name", "value" : "avu_value", "unit" : "avu_unit"}' 'http://127.0.0.1:3000/metadata?user=johnw&path=/iplant/home/johnw/LICENSE.txt'
 
