@@ -835,6 +835,8 @@
 (defn delete-trash
   [user]
   (with-jargon (jargon-config) [cm]
+    (validators/user-exists cm user)
+    
     (let [trash-dir  (:trash (user-trash user))
           trash-list (mapv #(.getAbsolutePath %) (list-in-dir cm (ft/rm-last-slash trash-dir)))]
       (doseq [trash-path trash-list]
