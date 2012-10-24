@@ -543,6 +543,14 @@
       (prov/log-provenance cm user path prov-event :data {:path path})
       retval)))
 
+(defn merge-counts
+  [stat-map cm path]
+  (if (is-dir? cm path)
+    (let [subs (group-by #(is-dir? cm %) (mapv #(.getAbsolutePath %) (list-in-dir cm path)))]
+      (merge stat-map {:file-count (count (get subs false))
+                       :dir-count  (count (get subs true))}))
+    stat-map))
+
 (defn path-stat
   [user path]
   (with-jargon (jargon-config) [cm]
@@ -550,7 +558,9 @@
     (let [prov-event (if (is-dir? cm path) prov/stat-dir prov/stat-file)
           retval     (stat cm path)]
       (prov/log-provenance cm user path prov-event :data {:path path})
-      retval)))
+      (-> retval
+          (merge {:permissions (permissions cm user path)})
+          (merge-counts cm path)))))
 
 (defn- format-tree-urls
   [treeurl-maps]
