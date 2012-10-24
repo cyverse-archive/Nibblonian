@@ -636,3 +636,13 @@
 
   (let [user (query-param request "user")]
     (irods-actions/user-trash user)))
+
+(defn do-delete-trash
+  [request]
+  (log/debug "do-delete-trash")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (let [user (query-param request "user")]
+    (irods-actions/delete-trash user)))

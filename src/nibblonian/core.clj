@@ -121,6 +121,9 @@
 
   (GET "/user-trash-dir" request
        (trap "user-trash-dir" do-user-trash request))
+
+  (DELETE "/trash" request
+          (trap "delete-trash" do-delete-trash request))
   
   (route/not-found "Not Found!"))
 

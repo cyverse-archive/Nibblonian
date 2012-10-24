@@ -832,3 +832,16 @@
        
        {:sources from :dest to})))
 
+(defn delete-trash
+  [user]
+  (with-jargon (jargon-config) [cm]
+    (let [trash-dir  (:trash (user-trash user))
+          trash-list (mapv #(.getAbsolutePath %) (list-in-dir cm (ft/rm-last-slash trash-dir)))]
+      (doseq [trash-path trash-list]
+        (let [prov-event (if (is-dir? cm trash-path) prov/delete-dir prov/delete-file)
+              prov-data  {:user user :path trash-path}]
+          (prov/log-provenance cm user trash-path prov-event :data prov-data)
+          (delete cm trash-path)))
+      {:trash trash-dir
+       :paths trash-list})))
+
