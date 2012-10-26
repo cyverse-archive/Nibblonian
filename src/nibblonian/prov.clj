@@ -212,65 +212,70 @@
 
 (defn lookup
   [cm user obj]
-  (try 
-    (let [purl (cfg/prov-url)
-          oid  (object-id cm user obj)]
-      (if (p/exists? purl oid)
-        (p/lookup purl oid)))
-    (catch Exception e
-      (log/warn e))
-    (catch java.net.ConnectException ce 
-      (log/warn ce))
-    (catch Throwable t
-      (log/warn t))))
+  (when (cfg/prov-enabled?)
+    (try 
+      (let [purl (cfg/prov-url)
+            oid  (object-id cm user obj)]
+        (if (p/exists? purl oid)
+          (p/lookup purl oid)))
+      (catch Exception e
+        (log/warn e))
+      (catch java.net.ConnectException ce 
+        (log/warn ce))
+      (catch Throwable t
+        (log/warn t)))))
 
 (defn register
   [cm user obj & [parent-uuid desc]]
-  (try 
-    (let [obj-id (object-id cm user obj)
-          obj-nm (object-name cm user obj)]
-      (if-not (p/exists? (cfg/prov-url) obj-id)
-        (p/register (cfg/prov-url) obj-id obj-nm desc parent-uuid))
-      obj-id)
-    (catch Exception e
-      (log/warn e))
-    (catch java.net.ConnectException ce 
-      (log/warn ce))
-    (catch Throwable t
-      (log/warn t))))
+  (when (cfg/prov-enabled?)
+    (try 
+      (let [obj-id (object-id cm user obj)
+            obj-nm (object-name cm user obj)]
+        (if-not (p/exists? (cfg/prov-url) obj-id)
+          (p/register (cfg/prov-url) obj-id obj-nm desc parent-uuid))
+        obj-id)
+      (catch Exception e
+        (log/warn e))
+      (catch java.net.ConnectException ce 
+        (log/warn ce))
+      (catch Throwable t
+        (log/warn t)))))
 
 (defn register-parent
   [cm user obj & [parent-uuid desc]]
-  (try 
-    (let [obj-id (object-id cm user obj)
-          obj-nm (object-name cm user obj)]
-      (if-not (p/exists? (cfg/prov-url) obj-id)
-        (p/register (cfg/prov-url) obj-id obj-nm desc parent-uuid))
-      (p/lookup (cfg/prov-url) obj-id))
-    (catch Exception e
-      (log/warn e))
-    (catch java.net.ConnectException ce 
-      (log/warn ce))
-    (catch Throwable t
-      (log/warn t))))
+  (when (cfg/prov-enabled?)
+    (try 
+      (let [obj-id (object-id cm user obj)
+            obj-nm (object-name cm user obj)]
+        (if-not (p/exists? (cfg/prov-url) obj-id)
+          (p/register (cfg/prov-url) obj-id obj-nm desc parent-uuid))
+        (p/lookup (cfg/prov-url) obj-id))
+      (catch Exception e
+        (log/warn e))
+      (catch java.net.ConnectException ce 
+        (log/warn ce))
+      (catch Throwable t
+        (log/warn t)))))
 
 (defn send-provenance
   [cm user obj-id event category & {:keys [data]}]
-  (try
-    (log/warn
-     (str "Log Provenance: "
-          (p/log (arg-map cm user obj-id event category :data data))))
-    (catch Exception e
-      (log/warn e))
-    (catch java.net.ConnectException ce 
-      (log/warn ce))
-    (catch Throwable t
-      (log/warn t))))
+  (when (cfg/prov-enabled?)
+    (try
+      (log/warn
+       (str "Log Provenance: "
+            (p/log (arg-map cm user obj-id event category :data data))))
+      (catch Exception e
+        (log/warn e))
+      (catch java.net.ConnectException ce 
+        (log/warn ce))
+      (catch Throwable t
+        (log/warn t)))))
 
 (defn log-provenance
   [cm user obj event & {:keys [parent-uuid data]}]
-  (let [obj-id  (register cm user obj parent-uuid)
-        obj-cat (determine-category cm obj)]
-    (log/warn (str "Object: " obj "\tID: " obj-id  "\tCategory: " obj-cat))
-    (send-provenance cm user obj-id event obj-cat :data data)
-    obj))
+  (when (cfg/prov-enabled?)
+    (let [obj-id  (register cm user obj parent-uuid)
+          obj-cat (determine-category cm obj)]
+      (log/warn (str "Object: " obj "\tID: " obj-id  "\tCategory: " obj-cat))
+      (send-provenance cm user obj-id event obj-cat :data data)
+      obj)))

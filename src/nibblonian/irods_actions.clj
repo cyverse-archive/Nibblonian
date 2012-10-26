@@ -7,7 +7,8 @@
             [clojure-commons.file-utils :as ft]
             [clojure.string :as string]
             [nibblonian.validators :as validators]
-            [nibblonian.prov :as prov])
+            [nibblonian.prov :as prov]
+            [nibblonian.riak :as riak])
   (:use [clj-jargon.jargon :exclude [init]]
         clojure-commons.error-codes
         [nibblonian.config :exclude [init]]
@@ -404,13 +405,13 @@
     (let [avu         (first (get-attribute cm path "tree-urls"))
           parent-uuid (prov/register-parent cm user path)
           logged-avu  (merge avu {:path path})
-          value       (:value avu)]
-      (log/warn value)
+          value       (json/read-json (riak/get-tree-urls (:value avu)))]
+      (log/warn (str "GETTING TREE: " value))
       (prov/log-provenance cm user logged-avu prov/get-tree-urls
                            :parent-uuid parent-uuid
                            :data {:path path
-                                  :tree avu})
-      (json/read-json value))))
+                                  :tree value})
+      value)))
 
 (defn metadata-set
   [user path avu-map]
@@ -486,25 +487,33 @@
 (defn current-tree-urls-value
   [cm path]
   (if (attribute? cm path "tree-urls")
-    (tree-urls-value cm path)
+    (json/read-json (riak/get-tree-urls (tree-urls-value cm path)))
     []))
 
 (defn add-tree-urls
   [curr-val tree-urls]
   (-> (conj curr-val tree-urls) flatten json/json-str))
 
+(defn tree-url-uuid
+  [cm path]
+  (if (attribute? cm path "tree-urls")
+    (tree-urls-value cm path)
+    (str (java.util.UUID/randomUUID))))
+
 (defn set-new-tree-urls
   [cm user path tree-urls]
-  (let [avu {:attr "tree-urls"
-             :value (add-tree-urls (current-tree-urls-value path) tree-urls)
-             :unit ""}
+  (let [req-body (json/json-str (add-tree-urls (current-tree-urls-value cm path) tree-urls))
+        new-uuid (tree-url-uuid cm path)
+        avu {:attr "tree-urls" :value new-uuid :unit ""}
         logged-avu (merge avu {:path path})
         parent-uuid (prov/register-parent cm user path)]
+    (log/warn "New tree urls")
+    (riak/set-tree-urls new-uuid req-body)
     (set-metadata cm path (:attr avu) (:value avu) (:unit avu))
     (prov/log-provenance cm user logged-avu prov/set-tree-urls
                          :parent-uuid parent-uuid
                          :data {:path path
-                                :avu avu})))
+                                :trees req-body})))
 
 (defn set-tree
   [user path tree-urls]

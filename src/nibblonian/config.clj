@@ -53,6 +53,12 @@
 
 (defn prov-url [] (get @props "nibblonian.prov-proxy-url"))
 (defn service-name [] (or (get @props "nibblonian.service-name")))
+(defn riak-base-url [] (get @props "nibblonian.riak.base-url"))
+(defn riak-trees-bucket [] (get @props "nibblonian.riak.trees-bucket"))
+
+(defn prov-enabled? []
+  (java.lang.Boolean/parseBoolean
+   (get @props "nibblonian.enable-provenance")))
 
 (def jg-cfg (atom nil))
 
