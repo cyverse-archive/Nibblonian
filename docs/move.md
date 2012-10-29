@@ -27,7 +27,7 @@ __Request Body__:
 __Response__:
 
     {
-        "action":"move-dirs",
+        "action":"move",
         "dest":"/tempZone/home/rods/test",
         "paths":[
             "/tempZone/home/rods/test1"
