@@ -20,7 +20,7 @@ __Request Body__:
 __Response__:
 
     {
-        "action":"rename-directory",
+        "action":"rename",
         "source":"/tempZone/home/wregglej/test3",
         "dest":"/tempZone/home/wregglej/test2",
         "status":"success"
