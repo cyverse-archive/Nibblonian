@@ -259,20 +259,6 @@
         path (query-param request "path")]
     (irods-actions/metadata-get user path)))
 
-(defn do-tree-get
-  [request]
-  (log/debug "do-tree-get")
-
-  (when-not (query-param? request "user") 
-    (bad-query "user"))
-  
-  (when-not (query-param? request "path") 
-    (bad-query "user"))
-  
-  (let [user (query-param request "user")
-        path (query-param request "path")]
-    (irods-actions/get-tree user path)))
-
 (defn do-metadata-set
   [request]
   (log/debug "do-metadata-set")
@@ -383,26 +369,6 @@
         (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "add"})))
 
     (irods-actions/metadata-batch-set user path body)))
-
-(defn do-tree-set
-  [request]
-  (log/debug "do-tree-set")
-
-  (when-not (query-param? request "user") 
-    (bad-query "user"))
-  
-  (when-not (query-param? request "path")
-    (bad-query "path"))
-  
-  (when-not (valid-body? request {:tree-urls vector})
-    (bad-body request {:tree-urls vector}))
-  
-  (let [user (query-param request "user")
-        path (query-param request "path")
-        body (:body request)]
-    (log/info (str "Body: " (json/json-str body)))
-
-    (irods-actions/set-tree user path body)))
 
 (defn do-metadata-delete
   [request]

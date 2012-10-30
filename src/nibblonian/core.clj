@@ -77,14 +77,6 @@
        (trap "manifest" 
              do-manifest request))
   
-  (GET "/file/tree-urls" request
-       (trap "get-tree-urls" 
-             do-tree-get request))
-  
-  (POST "/file/tree-urls" request
-        (trap "set-tree-urls" 
-              do-tree-set request))
-  
   (GET "/metadata" request
        (trap "get-metadata" 
              do-metadata-get request))

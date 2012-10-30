@@ -395,24 +395,6 @@
                                   :metadata avu})
       {:metadata avu})))
 
-(defn get-tree
-  [user path]
-  (with-jargon (jargon-config) [cm]
-    (validators/user-exists cm user)
-    (validators/path-exists cm path)
-    (validators/path-readable cm user path)
-    
-    (let [avu         (first (get-attribute cm path "tree-urls"))
-          parent-uuid (prov/register-parent cm user path)
-          logged-avu  (merge avu {:path path})
-          value       (json/read-json (riak/get-tree-urls (:value avu)))]
-      (log/warn (str "GETTING TREE: " value))
-      (prov/log-provenance cm user logged-avu prov/get-tree-urls
-                           :parent-uuid parent-uuid
-                           :data {:path path
-                                  :tree value})
-      value)))
-
 (defn metadata-set
   [user path avu-map]
   (with-jargon (jargon-config) [cm]
@@ -462,10 +444,11 @@
                         prov/set-file-metadata-batch)]
       (doseq [del (:delete adds-dels)]
         (when (attribute? cm new-path del)
-          (let [logged-avu (merge del {:path path})]
+          (let [logged-avu (merge (first (get-attribute cm path del)) {:path path})
+                del-event  (if (is-dir? cm del) prov/del-dir-metadata prov/del-file-metadata)]
             (workaround-delete cm new-path del)
             (delete-metadata cm new-path del)
-            (prov/log-provenance cm user logged-avu
+            (prov/log-provenance cm user logged-avu del-event
                                  :parent-uuid parent-uuid
                                  :data {:path path
                                         :avu del}))))
@@ -479,50 +462,6 @@
                                       :avu avu})
           (set-metadata cm new-path (:attr avu) (:value avu) new-unit)))
       {:path (ft/rm-last-slash path) :user user})))
-
-(defn tree-urls-value
-  [cm path]
-  (-> (get-attribute cm path "tree-urls") first :value json/read-json))
-
-(defn current-tree-urls-value
-  [cm path]
-  (if (attribute? cm path "tree-urls")
-    (json/read-json (riak/get-tree-urls (tree-urls-value cm path)))
-    []))
-
-(defn add-tree-urls
-  [curr-val tree-urls]
-  (-> (conj curr-val tree-urls) flatten json/json-str))
-
-(defn tree-url-uuid
-  [cm path]
-  (if (attribute? cm path "tree-urls")
-    (tree-urls-value cm path)
-    (str (java.util.UUID/randomUUID))))
-
-(defn set-new-tree-urls
-  [cm user path tree-urls]
-  (let [req-body (json/json-str (add-tree-urls (current-tree-urls-value cm path) tree-urls))
-        new-uuid (tree-url-uuid cm path)
-        avu {:attr "tree-urls" :value new-uuid :unit ""}
-        logged-avu (merge avu {:path path})
-        parent-uuid (prov/register-parent cm user path)]
-    (log/warn "New tree urls")
-    (riak/set-tree-urls new-uuid req-body)
-    (set-metadata cm path (:attr avu) (:value avu) (:unit avu))
-    (prov/log-provenance cm user logged-avu prov/set-tree-urls
-                         :parent-uuid parent-uuid
-                         :data {:path path
-                                :trees req-body})))
-
-(defn set-tree
-  [user path tree-urls]
-  (with-jargon (jargon-config) [cm]
-    (validators/user-exists cm user)
-    (validators/path-exists cm path)
-    (validators/path-writeable cm user path)
-    (set-new-tree-urls cm user path (:tree-urls tree-urls))
-    {:path path :user user}))
 
 (defn metadata-delete
   [user path attr]
@@ -585,6 +524,17 @@
   [cm path]
   (.detect (Tika.) (input-stream cm path)))
 
+(defn extract-tree-urls
+  [cm fpath]
+  (if (attribute? cm fpath "tree-urls")
+    (-> (get-attribute cm fpath "tree-urls")
+        first
+        :value
+        riak/get-tree-urls
+        json/read-json
+        :tree-urls)
+    []))
+
 (defn manifest
   [user path data-threshold]
   (with-jargon (jargon-config) [cm]
@@ -595,7 +545,7 @@
     
     (let [retval {:action "manifest"
                   :content-type (content-type cm path)
-                  :tree-urls (format-tree-urls (get-attribute cm path "tree-urls"))
+                  :tree-urls (extract-tree-urls cm path)
                   :preview (preview-url user path)}]
       (prov/log-provenance cm user path prov/file-manifest :data retval)
       retval)))
