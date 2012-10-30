@@ -7,7 +7,6 @@
             [clojure-commons.file-utils :as ft]
             [clojure.string :as string]
             [nibblonian.validators :as validators]
-            [nibblonian.prov :as prov]
             [nibblonian.riak :as riak])
   (:use [clj-jargon.jargon :exclude [init]]
         clojure-commons.error-codes
@@ -53,13 +52,6 @@
     (validators/user-exists cm user)
     (validators/all-paths-exist cm abspaths)
     (validators/user-owns-paths cm user abspaths)
-
-    (doseq [abspath abspaths]
-      (let [prov-event (if (is-dir? cm abspath) prov/get-user-dir-perms prov/get-user-file-perms)]
-        (prov/log-provenance cm user abspath prov-event
-                             :data {:path abspath
-                                    :perms (list-perm cm user abspath)})))
-    
     (mapv (partial list-perm cm user) abspaths)))
 
 (defn date-mod-from-stat 
@@ -207,9 +199,8 @@
         (set-permissions cm user path false false true))
       
       (validators/path-readable cm user path)
-      
-      (let [listing (gen-listing cm user path filter-files include-files)]
-        (prov/log-provenance cm user listing prov/list-dir :data listing)))))
+
+      (gen-listing cm user path filter-files include-files))))
 
 (defn root-listing
   ([user root-path]
@@ -224,9 +215,8 @@
         (set-permissions cm user root-path false false true))
 
       (validators/path-readable cm user root-path)
-      
-      (let [rlisting (dir-map-entry cm user (file cm root-path))]
-        (prov/log-provenance cm user rlisting prov/root :data rlisting)))))
+
+      (dir-map-entry cm user (file cm root-path)))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
@@ -246,35 +236,7 @@
     
     (mkdir cm path)
     (set-owner cm path user)
-    (prov/log-provenance cm user path prov/create-dir :data {:create-dir path})
     {:path path :permissions (collection-perm-map cm user path)}))
-
-(defn delete-paths
-  "Performs some validation and calls delete.
-
-   Parameters:
-     user - username of the user requesting the directory deletion.
-     paths - a sequence of strings containing directory paths.
-
-   Returns a map describing the success or failure of the deletion command."
-  [user paths]
-  (let [home-matcher #(= (str "/" (irods-zone) "/home/" user)
-                         (ft/rm-last-slash %1))] 
-    (with-jargon (jargon-config) [cm]
-      (validators/user-exists cm user)
-      (validators/all-paths-exist cm paths)
-      (validators/all-paths-writeable cm user paths)
-      
-      (when (some true? (mapv home-matcher paths))
-        (throw+ {:error_code ERR_NOT_AUTHORIZED 
-                 :paths (filterv home-matcher paths)}))
-      
-      (doseq [p paths]
-        (let [prov-event (if (is-dir? cm p) prov/delete-dir prov/delete-file)]
-          (prov/log-provenance cm user p prov-event :data {:deleted p})
-          (delete cm p)))
-      
-      {:paths paths})))
 
 (defn source->dest
   [source-path dest-path]
@@ -295,17 +257,7 @@
       (validators/all-paths-writeable cm user sources)
       (validators/path-writeable cm user dest)
       (validators/no-paths-exist cm dest-paths)
-      
       (move-all cm sources dest)
-      
-      (doseq [dest-path dest-paths]
-        (let [source-path (get all-paths dest-path)
-              parent-uuid (prov/register-parent cm user source-path)
-              prov-event  (if (is-dir? cm dest-path) prov/move-dir prov/move-file)]
-          (prov/log-provenance cm user dest-path prov-event
-                               :data {:dest-path dest-path
-                                      :source-path source-path})))
-      
       {:sources sources :dest dest})))
 
 (defn rename-path
@@ -317,17 +269,11 @@
     (validators/path-writeable cm user source)
     (validators/path-not-exists cm dest)
     
-    (let [result      (move cm source dest)
-          parent-uuid (prov/register-parent cm user source)
-          retval      {:source source :dest dest :user user}
-          prov-event  (if (is-dir? cm source) prov/rename-dir prov/rename-file)]
+    (let [result (move cm source dest)]
       (when-not (nil? result)
         (throw+ {:error_code ERR_INCOMPLETE_RENAME
                  :paths result
                  :user user}))
-      (prov/log-provenance cm user dest prov-event
-                           :parent-uuid parent-uuid
-                           :data {:source source :dest dest :user user})
       {:source source :dest dest :user user})))
 
 (defn- preview-buffer
@@ -358,11 +304,7 @@
     (validators/path-exists cm path)
     (validators/path-readable cm user path)
     (validators/path-is-file cm path)
-
-    (let [file-preview (gen-preview cm path size)]
-      (prov/log-provenance cm user path prov/preview-file
-                           :data {:path path})
-      file-preview)))
+    (gen-preview cm path size)))
 
 (defn user-home-dir
   ([user]
@@ -374,7 +316,6 @@
        (let [user-home (ft/path-join staging-dir user)]
          (if (not (exists? cm user-home))
            (mkdirs cm user-home))
-         (prov/log-provenance cm user user-home prov/home :data {:home-dir user-home})
          user-home))))
 
 (defn metadata-get
@@ -385,14 +326,7 @@
     (validators/path-readable cm user path)
     
     (let [fix-unit    #(if (= (:unit %1) IPCRESERVED) (assoc %1 :unit "") %1)
-          avu         (map fix-unit (get-metadata cm (ft/rm-last-slash path)))
-          parent-uuid (prov/register-parent cm user path)
-          logged-avu  (merge avu {:path path})
-          prov-event  (if (is-dir? cm path) prov/get-dir-metadata prov/get-file-metadata)]
-      (prov/log-provenance cm user logged-avu prov-event
-                           :parent-uuid parent-uuid
-                           :data {:path path
-                                  :metadata avu})
+          avu         (map fix-unit (get-metadata cm (ft/rm-last-slash path)))]
       {:metadata avu})))
 
 (defn metadata-set
@@ -406,15 +340,8 @@
     (validators/path-exists cm path)
     (validators/path-writeable cm user path)
     
-    (let [new-unit    (if (string/blank? (:unit avu-map)) IPCRESERVED (:unit avu-map))
-          logged-avu  (merge avu-map {:path path})
-          parent-uuid (prov/register-parent cm user path)
-          prov-event  (if (is-dir? cm path) prov/set-dir-metadata prov/get-dir-metadata)]
+    (let [new-unit (if (string/blank? (:unit avu-map)) IPCRESERVED (:unit avu-map))]
       (set-metadata cm (ft/rm-last-slash path) (:attr avu-map) (:value avu-map) new-unit)
-      (prov/log-provenance cm user logged-avu prov-event
-                           :parent-uuid parent-uuid
-                           :data {:path path
-                                  :avu avu-map})
       {:path (ft/rm-last-slash path) :user user})))
 
 (defn encode-str
@@ -437,29 +364,14 @@
     (validators/path-exists cm path)
     (validators/path-writeable cm user path)
     
-    (let [new-path    (ft/rm-last-slash path)
-          parent-uuid (prov/register-parent cm user path)
-          prov-event  (if (is-dir? cm path)
-                        prov/set-dir-metadata-batch
-                        prov/set-file-metadata-batch)]
+    (let [new-path (ft/rm-last-slash path)]
       (doseq [del (:delete adds-dels)]
         (when (attribute? cm new-path del)
-          (let [logged-avu (merge (first (get-attribute cm path del)) {:path path})
-                del-event  (if (is-dir? cm del) prov/del-dir-metadata prov/del-file-metadata)]
-            (workaround-delete cm new-path del)
-            (delete-metadata cm new-path del)
-            (prov/log-provenance cm user logged-avu del-event
-                                 :parent-uuid parent-uuid
-                                 :data {:path path
-                                        :avu del}))))
+          (workaround-delete cm new-path del)
+          (delete-metadata cm new-path del)))
       
       (doseq [avu (:add adds-dels)]
-        (let [new-unit    (if (string/blank? (:unit avu)) IPCRESERVED (:unit avu))
-              logged-avu  (merge avu {:path path})]
-          (prov/log-provenance cm user logged-avu prov-event
-                               :parent-uuid parent-uuid
-                               :data {:path path
-                                      :avu avu})
+        (let [new-unit (if (string/blank? (:unit avu)) IPCRESERVED (:unit avu))]
           (set-metadata cm new-path (:attr avu) (:value avu) new-unit)))
       {:path (ft/rm-last-slash path) :user user})))
 
@@ -470,26 +382,13 @@
     (validators/path-exists cm path)
     (validators/path-writeable cm user path)
     
-    (let [parent-uuid (prov/register-parent cm user path)
-          fix-unit    #(if (= (:unit %1) IPCRESERVED) (assoc %1 :unit "") %1)
-          avu         (map fix-unit (get-metadata cm (ft/rm-last-slash path)))
-          logged-avu  (merge avu {:path path})
-          prov-event  (if (is-dir? cm user path) prov/del-dir-metadata prov/set-dir-metadata)]  
+    (let [fix-unit #(if (= (:unit %1) IPCRESERVED) (assoc %1 :unit "") %1)
+          avu      (map fix-unit (get-metadata cm (ft/rm-last-slash path)))]  
       (workaround-delete cm path attr)
-      (delete-metadata cm path attr)
-      (prov/log-provenance cm user logged-avu prov-event
-                           :parent-uuid parent-uuid
-                           :data {:path path
-                                  :avu avu}))
+      (delete-metadata cm path attr))
     {:path path :user user}))
 
-(defn path-exists?
-  [user path]
-  (with-jargon (jargon-config) [cm]
-    (let [retval     (exists? cm path)
-          prov-event (if (is-dir? cm path) prov/dir-exists prov/file-exists)]
-      (prov/log-provenance cm user path prov-event :data {:path path})
-      retval)))
+(defn path-exists? [user path] (with-jargon (jargon-config) [cm] (exists? cm path)))
 
 (defn merge-counts
   [stat-map cm path]
@@ -503,9 +402,7 @@
   [user path]
   (with-jargon (jargon-config) [cm]
     (validators/path-exists cm path)
-    (let [prov-event (if (is-dir? cm path) prov/stat-dir prov/stat-file)
-          retval     (stat cm path)]
-      (prov/log-provenance cm user path prov-event :data {:path path})
+    (let [retval (stat cm path)]
       (-> retval
           (merge {:permissions (permissions cm user path)})
           (merge-counts cm path)))))
@@ -542,13 +439,11 @@
     (validators/path-exists cm path)
     (validators/path-is-file cm path)
     (validators/path-readable cm user path)
-    
-    (let [retval {:action "manifest"
-                  :content-type (content-type cm path)
-                  :tree-urls (extract-tree-urls cm path)
-                  :preview (preview-url user path)}]
-      (prov/log-provenance cm user path prov/file-manifest :data retval)
-      retval)))
+
+    {:action       "manifest"
+     :content-type (content-type cm path)
+     :tree-urls    (extract-tree-urls cm path)
+     :preview      (preview-url user path)}))
 
 (defn download-file
   [user file-path]
@@ -556,51 +451,45 @@
     (validators/user-exists cm user)
     (validators/path-exists cm file-path)
     (validators/path-readable cm user file-path)
-    
-    (let [retval (if (zero? (file-size cm file-path)) "" (input-stream cm file-path))]
-      (prov/log-provenance cm user file-path prov/download :data {:path file-path})
-      retval)))
+
+    (if (zero? (file-size cm file-path)) "" (input-stream cm file-path))))
 
 (defn download
   [user filepaths]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     
-    (let [cart-key   (str (System/currentTimeMillis))
-          account    (:irodsAccount cm)
-          retval     {:action "download"
-                      :status "success"
-                      :data
-                      {:user user
-                       :home (ft/path-join "/" (irods-zone) "home" user)
-                       :password (store-cart cm user cart-key filepaths)
-                       :host (.getHost account)
-                       :port (.getPort account)
-                       :zone (.getZone account)
-                       :defaultStorageResource (.getDefaultStorageResource account)
-                       :key cart-key}}]
-      (prov/log-provenance cm user retval prov/download-cart :data {:paths filepaths})
-      retval)))
+    (let [cart-key (str (System/currentTimeMillis))
+          account  (:irodsAccount cm)]
+      {:action "download"
+       :status "success"
+       :data
+       {:user user
+        :home (ft/path-join "/" (irods-zone) "home" user)
+        :password (store-cart cm user cart-key filepaths)
+        :host (.getHost account)
+        :port (.getPort account)
+        :zone (.getZone account)
+        :defaultStorageResource (.getDefaultStorageResource account)
+        :key cart-key}})))
 
 (defn upload
   [user]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     
-    (let [account (:irodsAccount cm)
-          retval  {:action "upload"
-                   :status "success"
-                   :data
-                   {:user user
-                    :home (ft/path-join "/" (irods-zone) "home" user)
-                    :password (temp-password cm user)
-                    :host (.getHost account)
-                    :port (.getPort account)
-                    :zone (.getZone account)
-                    :defaultStorageResource (.getDefaultStorageResource account)
-                    :key (str (System/currentTimeMillis))}}]
-      (prov/log-provenance cm user retval prov/upload-cart :data retval)
-      retval)))
+    (let [account (:irodsAccount cm)]
+      {:action "upload"
+       :status "success"
+       :data
+       {:user user
+        :home (ft/path-join "/" (irods-zone) "home" user)
+        :password (temp-password cm user)
+        :host (.getHost account)
+        :port (.getPort account)
+        :zone (.getZone account)
+        :defaultStorageResource (.getDefaultStorageResource account)
+        :key (str (System/currentTimeMillis))}})))
 
 (defn share
   [user share-withs fpaths perms]
@@ -640,12 +529,7 @@
              (:collectionAO cm)
              (irods-zone)
              fpath
-             true))
-          
-          (let [prov-event (if (is-dir? cm fpath) prov/share-dir prov/share-file)]
-            (prov/log-provenance cm user fpath prov-event :data {:path fpath
-                                                                 :shared-with share-with
-                                                                 :permissions perms})))))
+             true)))))
     
     {:user share-withs
      :path fpaths
@@ -688,11 +572,6 @@
               (when-not (or (= dir-path base-dir)
                             (contains-accessible-obj? cm unshare-with dir-path))
                 (remove-permissions cm unshare-with dir-path)
-                
-                (let [prov-event (if (is-dir? cm fpath) prov/unshare-dir prov/unshare-file)]
-                  (prov/log-provenance cm user fpath prov-event
-                                       :data {:path fpath
-                                              :unshared-with unshare-with}))
                 (recur (ft/dirname dir-path)))))))))
   
   {:user unshare-withs
@@ -715,9 +594,7 @@
   [user]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
-    (let [retval (quota cm user)]
-      (prov/log-provenance cm user (irods-home) prov/quota :data retval)
-      retval)))
+    (quota cm user)))
 
 (defn trim-leading-slash
   [str-to-trim]
@@ -736,6 +613,48 @@
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     {:trash (user-trash-dir user)}))
+
+(defn move-to-trash
+  [cm p user]
+  (let [orig-path-rel (string/replace-first p (ft/add-trailing-slash (user-home-dir user)) "")
+        trash-path    (ft/path-join (user-trash-dir user) orig-path-rel)]
+    (mkdirs cm (ft/dirname trash-path))
+    
+    (loop [tp (ft/dirname trash-path)]
+      (if-not (owns? cm user tp)
+              (set-owner cm tp user))
+      
+      (if-not (= tp (user-trash-dir user))
+        (recur (ft/dirname tp))))
+    
+    (move cm p trash-path)))
+
+(defn delete-paths
+  "Performs some validation and calls delete.
+
+   Parameters:
+     user - username of the user requesting the directory deletion.
+     paths - a sequence of strings containing directory paths.
+
+   Returns a map describing the success or failure of the deletion command."
+  [user paths]
+  (let [home-matcher #(= (str "/" (irods-zone) "/home/" user)
+                         (ft/rm-last-slash %1))] 
+    (with-jargon (jargon-config) [cm]
+      (validators/user-exists cm user)
+      (validators/all-paths-exist cm paths)
+      (validators/all-paths-writeable cm user paths)
+      
+      (when (some true? (mapv home-matcher paths))
+        (throw+ {:error_code ERR_NOT_AUTHORIZED 
+                 :paths (filterv home-matcher paths)}))
+      
+      (doseq [p paths]
+        (if-not (.startsWith p (user-trash-dir user))
+          (move-to-trash cm p user)
+          (delete cm p)))
+      
+      {:paths paths})))
 
 (defn restoration-path
   [user path name user-trash]
@@ -756,15 +675,7 @@
           (validators/path-writeable cm user (ft/dirname fully-restored))
           
           (move cm path fully-restored)
-          (reset! retval (assoc @retval path fully-restored))
-
-          (let [prov-event  (if (is-dir? cm fully-restored) prov/restore-dir prov/restore-file)
-                parent-uuid (prov/register-parent cm user path)]
-            (prov/log-provenance cm user fully-restored prov-event
-                                 :parent-uuid parent-uuid
-                                 :data {:user user
-                                        :restored-from path
-                                        :restored-to fully-restored}))))
+          (reset! retval (assoc @retval path fully-restored))))
       {:restored @retval})))
 
 (defn copy-path
@@ -781,7 +692,6 @@
        (validators/path-is-dir cm to)
        (validators/no-paths-exist cm (mapv #(ft/path-join to (ft/basename %)) from))
        
-       ;;;Can't copy a file or directory into itself.
        (when (some true? (mapv #(= to %1) from))
          (throw+ {:error_code ERR_INVALID_COPY
                   :paths (filterv #(= to %1) from)}))
@@ -790,14 +700,7 @@
          (let [metapath (ft/rm-last-slash (ft/path-join to (ft/basename fr)))]
            (copy cm fr to)
            (set-metadata cm metapath copy-key fr "")
-           (set-owner cm to user)
-           (let [prov-event (if (is-dir? cm to) prov/copy-dir prov/copy-file)
-                 parent-uuid (prov/register-parent cm user fr)]
-             (prov/log-provenance cm user to
-                                  :parent-uuid parent-uuid
-                                  :data {:user user
-                                         :copy-from fr
-                                         :copy-to to}))))
+           (set-owner cm to user)))
        
        {:sources from :dest to})))
 
@@ -806,13 +709,10 @@
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     
-    (let [trash-dir  (:trash (user-trash user))
+    (let [trash-dir  (user-trash-dir user)
           trash-list (mapv #(.getAbsolutePath %) (list-in-dir cm (ft/rm-last-slash trash-dir)))]
       (doseq [trash-path trash-list]
-        (let [prov-event (if (is-dir? cm trash-path) prov/delete-dir prov/delete-file)
-              prov-data  {:user user :path trash-path}]
-          (prov/log-provenance cm user trash-path prov-event :data prov-data)
-          (delete cm trash-path)))
+        (delete cm trash-path))
       {:trash trash-dir
        :paths trash-list})))
 
