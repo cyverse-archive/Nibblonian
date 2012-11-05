@@ -620,6 +620,18 @@
         paths (get-in request [:body :paths])]
     {:paths (irods-actions/list-perms user paths)}))
 
+(defn do-groups
+  [request]
+  "Handles a request for the names of the groups a user belongs to.
+
+   Request parameters:
+     user - Query string field contain the iRODS account name for the user of
+       interest."
+  (log/debug "do-groups") 
+  (when-not (query-param? request "user") 
+    (bad-query "user"))
+  {:groups (irods-actions/list-user-groups (query-param request "user"))})
+  
 (defn do-quota
   "Handles returning a list of objects representing
    all of the quotas that a user has."

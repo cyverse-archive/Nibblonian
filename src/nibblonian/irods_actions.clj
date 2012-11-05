@@ -439,6 +439,27 @@
         (mkdirs user-home))
       user-home)))
 
+(defn list-user-groups
+  [user]
+  "Returns a list of names for the groups a user is in.
+
+   Parameters:
+     user - the user's iRODS account name
+
+   Returns:
+     A list of group names
+
+   Preconditions:
+     clj-jargon must have been initialized
+
+   Throws:
+     ERR_NOT_A_USER - This is thrown if user is not a valid iRODS account name."
+  (with-jargon
+    (when-not (user-exists? user)
+      (throw+ {:error_code ERR_NOT_A_USER
+               :user user}))
+    (user-groups user)))
+
 (defn metadata-get
   [user path]
   (with-jargon
