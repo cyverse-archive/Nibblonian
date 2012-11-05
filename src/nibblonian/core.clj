@@ -102,6 +102,9 @@
   (POST "/user-permissions" request
        (trap "user-permissions" do-user-permissions request))
   
+  (GET "/groups" request
+       (trap "groups" do-groups request))
+       
   (GET "/quota" request
        (trap "quota-list" do-quota request))
 
