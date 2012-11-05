@@ -664,10 +664,35 @@
       
       {:paths paths})))
 
+(defn trash-origin-path
+  [cm user p]
+  (if (attribute? cm p "ipc-trash-origin")
+    (:value (first (get-attribute cm p "ipc-trash-origin")))
+    (ft/path-join (user-home-dir user) (ft/basename p))))
+
 (defn restoration-path
-  [user path name user-trash]
-  (let [user-home (user-home-dir user)]
-    (ft/path-join user-home (trash-relative-path path name user-trash))))
+  [cm user path]
+  (let [user-home   (user-home-dir user)
+        origin-path (trash-origin-path cm user path)
+        inc-path    #(str origin-path "." %)]
+    (if-not (exists? cm origin-path)
+      origin-path
+      (loop [attempts 0]
+        (if (exists? cm (inc-path attempts))
+          (recur (inc attempts))
+          (inc-path attempts))))))
+
+(defn restore-parent-dirs
+  [cm user path]
+  (log/warn "restore-parent-dirs")
+  (log/warn (ft/dirname path))
+  (when-not (exists? cm (ft/dirname path))
+    (mkdirs cm (ft/dirname path))
+    (loop [parent (ft/dirname path)]
+      (when (and (not= parent (user-home-dir user)) (not (owns? cm user parent)))
+        (log/warn (str "Restoring parent dir: " parent))
+        (set-owner cm parent user)
+        (recur (ft/dirname parent))))))
 
 (defn restore-path
   [{:keys [user paths user-trash]}]
@@ -678,10 +703,10 @@
 
     (let [retval (atom (hash-map))]
       (doseq [path paths]
-        (let [fully-restored (restoration-path user path (ft/basename path) user-trash)]
+        (let [fully-restored (restoration-path cm user path)]
           (validators/path-not-exists cm fully-restored)
+          (restore-parent-dirs cm user fully-restored)
           (validators/path-writeable cm user (ft/dirname fully-restored))
-          
           (move cm path fully-restored)
           (reset! retval (assoc @retval path fully-restored))))
       {:restored @retval})))
