@@ -15,6 +15,7 @@
   (:import [org.apache.tika Tika]))
 
 (def IPCRESERVED "ipc-reserved-unit")
+(def IPCSYSTEM "ipc-system-avu")
 
 (defn not-filtered?
   [cm user fpath ff]
@@ -614,20 +615,27 @@
     (validators/user-exists cm user)
     {:trash (user-trash-dir user)}))
 
+(defn incremented-trash-path
+  [cm user p]
+  (let [inc-path #(ft/path-join (user-trash-dir user) (str (ft/basename p) "." %))]
+    (loop [attempts 0]
+      (if (exists? cm (inc-path attempts))
+        (recur (inc attempts))
+        (inc-path attempts)))))
+
+(defn generated-trash-path
+  [cm user p]
+  (let [file-basename (ft/basename p)
+        user-trash    (user-trash-dir user)]
+    (if (exists? cm (ft/path-join user-trash file-basename))
+      (incremented-trash-path cm user p)
+      (ft/path-join user-trash file-basename))))
+
 (defn move-to-trash
   [cm p user]
-  (let [orig-path-rel (string/replace-first p (ft/add-trailing-slash (user-home-dir user)) "")
-        trash-path    (ft/path-join (user-trash-dir user) orig-path-rel)]
-    (mkdirs cm (ft/dirname trash-path))
-    
-    (loop [tp (ft/dirname trash-path)]
-      (if-not (owns? cm user tp)
-              (set-owner cm tp user))
-      
-      (if-not (= tp (user-trash-dir user))
-        (recur (ft/dirname tp))))
-    
-    (move cm p trash-path)))
+  (let [trash-path (generated-trash-path cm user p)]
+    (move cm p trash-path)
+    (set-metadata cm trash-path "ipc-trash-origin" p IPCSYSTEM)))
 
 (defn delete-paths
   "Performs some validation and calls delete.
