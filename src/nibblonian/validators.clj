@@ -14,7 +14,7 @@
   (when-not (every? #(user-exists? cm %) users)
     (throw+ {:error_code ERR_NOT_A_USER
              :users (filterv
-                     #(not (user-exists? %1))
+                     #(not (user-exists? cm %1))
                      users)})))
 
 (defn path-exists
