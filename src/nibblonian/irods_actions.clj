@@ -331,6 +331,23 @@
    #(not= (:unit %) IPCSYSTEM)
    (map fix-unit (get-metadata cm (ft/rm-last-slash path)))))
 
+(defn list-user-groups
+  [user]
+  "Returns a list of names for the groups a user is in.
+
+   Parameters:
+     user - the user's iRODS account name
+
+   Returns:
+     A list of group names
+
+   Throws:
+     ERR_NOT_A_USER - This is thrown if user is not a valid iRODS account name."
+  (with-jargon (jargon-config) [cm]
+    (validators/user-exists cm user)
+    
+    (user-groups cm user)))
+
 (defn metadata-get
   [user path]
   (with-jargon (jargon-config) [cm]

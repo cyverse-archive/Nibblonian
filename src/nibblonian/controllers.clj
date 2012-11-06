@@ -10,7 +10,6 @@
             [ring.util.codec :as cdc]
             [clojure-commons.file-utils :as utils]
             [clj-jargon.jargon :as jargon]
-            [nibblonian.irods-actions :as irods-actions]
             [clojure-commons.clavin-client :as cl]
             [clojure.tools.logging :as log]
             [clojure.data.json :as json]
@@ -581,6 +580,18 @@
     :to   (get-in request [:body :destination])}
    (copy-key)))
 
+(defn do-groups
+  [request]
+  "Handles a request for the names of the groups a user belongs to.
+
+   Request parameters:
+     user - Query string field contain the iRODS account name for the user of
+       interest."
+  (log/debug "do-groups") 
+  (when-not (query-param? request "user") 
+    (bad-query "user"))
+  {:groups (irods-actions/list-user-groups (query-param request "user"))})
+  
 (defn do-quota
   "Handles returning a list of objects representing
    all of the quotas that a user has."

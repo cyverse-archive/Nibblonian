@@ -10,4 +10,3 @@ A successful call will have a 200 status code, while an error will have either a
 All commands take a "user" query string parameter. This is the iRODS user that is requesting the operation. The service runs as an iRODS superuser and performs actions on the behalf of the user specified in the query string.
 
 Also worth noting is that I've pretty-printed the JSON from the response bodies, but they aren't actually returned like that when you make a call.
-
