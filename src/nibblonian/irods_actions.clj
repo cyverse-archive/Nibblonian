@@ -319,16 +319,25 @@
            (mkdirs cm user-home))
          user-home))))
 
+(defn fix-unit
+  [avu]
+  (if (= (:unit avu) IPCRESERVED)
+    (assoc avu :unit "")
+    avu))
+
+(defn list-path-metadata
+  [cm path]
+  (filterv
+   #(not= (:unit %) IPCSYSTEM)
+   (map fix-unit (get-metadata cm (ft/rm-last-slash path)))))
+
 (defn metadata-get
   [user path]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     (validators/path-exists cm path)
     (validators/path-readable cm user path)
-    
-    (let [fix-unit    #(if (= (:unit %1) IPCRESERVED) (assoc %1 :unit "") %1)
-          avu         (map fix-unit (get-metadata cm (ft/rm-last-slash path)))]
-      {:metadata avu})))
+    {:metadata (list-path-metadata cm path)}))
 
 (defn metadata-set
   [user path avu-map]
