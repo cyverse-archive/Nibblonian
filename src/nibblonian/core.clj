@@ -111,6 +111,9 @@
   (POST "/copy" request
         (trap "copy" do-copy request))
 
+  (POST "/ticket" request
+        (trap "add-tickets" do-add-tickets request))
+
   (GET "/user-trash-dir" request
        (trap "user-trash-dir" do-user-trash request))
 

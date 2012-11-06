@@ -758,3 +758,23 @@
       {:trash trash-dir
        :paths trash-list})))
 
+(defn add-tickets
+  [user tickets]
+  (with-jargon (jargon-config) [cm]
+    (validators/user-exists cm user)
+
+    (let [all-paths      (mapv :path tickets)
+          all-ticket-ids (mapv :ticket-id tickets)]
+      (validators/all-paths-exist cm all-paths)
+      (validators/all-paths-writeable cm user all-paths)
+      (validators/all-tickets-nonexistant cm user all-ticket-ids)
+
+      (doseq [tm tickets]
+        (create-ticket cm user (:path tm) (:ticket-id tm)
+                       :byte-write-limit (:byte-write-limit tm)
+                       :expiry           (:expiry tm)
+                       :file-write-limit (:file-write-limit tm)
+                       :uses-limit       (:uses-limit tm)))
+
+      {:user user :tickets (mapv #(ticket-map cm user %) all-ticket-ids)})))
+

@@ -612,3 +612,23 @@
 
   (let [user (query-param request "user")]
     (irods-actions/delete-trash user)))
+
+(defn check-tickets
+  [tickets]
+  (mapv #(= (set (keys %)) (set [:path :ticket-id])) tickets))
+
+(defn do-add-tickets
+  [request]
+  (log/debug "do-add-tickets")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:tickets sequential?})
+    (bad-body request {:tickets sequential?}))
+
+  (when-not (check-tickets (:tickets (:body request)))
+    (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "tickets"}))
+  
+  (let [user (query-param request "user")]
+    (irods-actions/add-tickets user (:tickets (:body request)))))
