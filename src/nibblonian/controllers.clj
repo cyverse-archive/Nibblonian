@@ -10,7 +10,6 @@
             [ring.util.codec :as cdc]
             [clojure-commons.file-utils :as utils]
             [clj-jargon.jargon :as jargon]
-            [nibblonian.irods-actions :as irods-actions]
             [clojure-commons.clavin-client :as cl]
             [clojure.tools.logging :as log]
             [clojure.data.json :as json]
