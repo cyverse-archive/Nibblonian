@@ -795,3 +795,15 @@
 
       {:user user :tickets (mapv #(ticket-map cm user %) all-ticket-ids)})))
 
+(defn remove-tickets
+  [user ticket-ids]
+  (with-jargon (jargon-config) [cm]
+    (validators/user-exists cm user)
+    (validators/all-tickets-exist cm user ticket-ids)
+
+    (let [all-paths (mapv #(.getIrodsAbsolutePath (ticket-by-id cm user %)) ticket-ids)]
+      (validators/all-paths-writeable cm user all-paths)
+      (doseq [ticket-id ticket-ids]
+        (delete-ticket cm user ticket-id))
+      {:user user :ticket-ids ticket-ids})))
+

@@ -117,6 +117,9 @@
   (POST "/ticket" request
         (trap "add-tickets" do-add-tickets request))
 
+  (POST "/delete-tickets" request
+        (trap "delete-tickets" do-remove-tickets request))
+
   (GET "/user-trash-dir" request
        (trap "user-trash-dir" do-user-trash request))
 
