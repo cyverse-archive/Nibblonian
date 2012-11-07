@@ -805,5 +805,15 @@
       (validators/all-paths-writeable cm user all-paths)
       (doseq [ticket-id ticket-ids]
         (delete-ticket cm user ticket-id))
-      {:user user :ticket-ids ticket-ids})))
+      {:user user :tickets ticket-ids})))
+
+(defn list-tickets-for-paths
+  [user paths]
+  (with-jargon (jargon-config) [cm]
+    (validators/user-exists cm user)
+    (validators/all-paths-exist cm paths)
+    (validators/all-paths-readable cm user paths)
+
+    {:tickets
+     (apply merge (mapv #(hash-map %1 (ticket-ids-for-path cm user %1)) paths))}))
 

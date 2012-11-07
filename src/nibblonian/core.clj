@@ -120,6 +120,9 @@
   (POST "/delete-tickets" request
         (trap "delete-tickets" do-remove-tickets request))
 
+  (POST "/list-tickets" request
+        (trap "list-tickets" do-list-tickets request))
+
   (GET "/user-trash-dir" request
        (trap "user-trash-dir" do-user-trash request))
 

@@ -659,3 +659,20 @@
 
   (let [user (query-param request "user")]
     (irods-actions/remove-tickets user (:tickets (:body request)))))
+
+(defn do-list-tickets
+  [request]
+  (log/debug "do-list-tickets")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:paths sequential?})
+    (bad-body request {:paths sequential?}))
+
+  (when-not (every? true? (mapv string? (:paths (:body request))))
+    (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "paths"}))
+
+  (let [user  (query-param request "user")
+        paths (:paths (:body request))]
+    (irods-actions/list-tickets-for-paths user paths)))
