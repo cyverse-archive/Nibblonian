@@ -21,7 +21,7 @@
 
 (defn- dir-list
   ([user directory include-files]
-     (dir-list user directory include-files true))
+     (dir-list user directory include-files false))
   
   ([user directory include-files set-own?]
      (when (super-user? user)
