@@ -427,11 +427,10 @@
   [cm user path]
   (let [filter-users (set (conj (perms-filter) user (irods-user)))
         full-listing (list-user-perms-for-path cm user path)]
-    (str
-     (count
+    (count
      (filterv
       #(not (contains? filter-users (.getUserName %1)))
-      full-listing)))))
+      full-listing))))
 
 (defn merge-counts
   [stat-map cm path]
