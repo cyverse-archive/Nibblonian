@@ -417,6 +417,22 @@
 
 (defn path-exists? [user path] (with-jargon (jargon-config) [cm] (exists? cm path)))
 
+(defn list-user-perms-for-path
+  [cm user path]
+  (if (is-file? cm path)
+    (.listPermissionsForDataObject (:dataObjectAO cm) path)
+    (.listPermissionsForCollection (:collectionAO cm) path)))
+
+(defn count-shares
+  [cm user path]
+  (let [filter-users (set (conj (perms-filter) user (irods-user)))
+        full-listing (list-user-perms-for-path cm user path)]
+    (str
+     (count
+     (filterv
+      #(not (contains? filter-users (.getUserName %1)))
+      full-listing)))))
+
 (defn merge-counts
   [stat-map cm path]
   (if (is-dir? cm path)
@@ -431,7 +447,8 @@
     (validators/path-exists cm path)
     (let [retval (stat cm path)]
       (-> retval
-          (merge {:permissions (permissions cm user path)})
+          (merge {:permissions (permissions cm user path)
+                  :share-count (count-shares cm user path)})
           (merge-counts cm path)))))
 
 (defn- format-tree-urls
