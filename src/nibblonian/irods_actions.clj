@@ -776,7 +776,7 @@
        :paths trash-list})))
 
 (defn add-tickets
-  [user tickets]
+  [user tickets public?]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
 
@@ -787,11 +787,9 @@
       (validators/all-tickets-nonexistant cm user all-ticket-ids)
 
       (doseq [tm tickets]
-        (create-ticket cm user (:path tm) (:ticket-id tm)
-                       :byte-write-limit (:byte-write-limit tm)
-                       :expiry           (:expiry tm)
-                       :file-write-limit (:file-write-limit tm)
-                       :uses-limit       (:uses-limit tm)))
+        (create-ticket cm user (:path tm) (:ticket-id tm))
+        (when public?
+          (.addTicketGroupRestriction (ticket-admin-service cm user) (:ticket-id tm) "public")))
 
       {:user user :tickets (mapv #(ticket-map cm user %) all-ticket-ids)})))
 

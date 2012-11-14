@@ -641,8 +641,10 @@
   (when-not (check-tickets (:tickets (:body request)))
     (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "tickets"}))
   
-  (let [user (query-param request "user")]
-    (irods-actions/add-tickets user (:tickets (:body request)))))
+  (let [user      (query-param request "user")
+        pub-param (query-param request "public")
+        public    (if (and pub-param (= pub-param "1")) true false)]
+    (irods-actions/add-tickets user (:tickets (:body request)) public)))
 
 (defn do-remove-tickets
   [request]
@@ -657,7 +659,7 @@
   (when-not (every? true? (mapv string? (:tickets (:body request))))
     (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "tickets"}))
 
-  (let [user (query-param request "user")]
+  (let [user   (query-param request "user")]
     (irods-actions/remove-tickets user (:tickets (:body request)))))
 
 (defn do-list-tickets
