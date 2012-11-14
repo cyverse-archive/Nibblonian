@@ -17,6 +17,7 @@ __Request Parameters__:
            defaults to not making tickets public.
 
 __Request Body__:
+
     {
         "tickets" : [
             {
@@ -30,6 +31,7 @@ The "ticket-id" field is the user supplied string that is associated with the ti
 required field.
 
 __Response Body__:
+
     {
         "action" : "add-tickets",
         "user" : "<username>",
@@ -62,11 +64,13 @@ __Request Parameters__:
 * user - The iRODS username associated with the request.
 
 __Request Body__:
+
     {
         "paths" : ["list of paths to look up tickets for"]
     }
 
 __Response Body__:
+
     {
         "action" : "list-tickets",
         "tickets" : {
@@ -76,6 +80,7 @@ __Response Body__:
     }
 
 __Curl Command__:
+
     curl -H "Content-Type:application/json" -d '{"paths":{"/path/to/file":["ticket-id1","ticket-id2","ticket-id3"],"/path/to/dir":["ticket-id4","ticket-id5"]}}' http://127.0.0.1:3000/list-tickets?user=<username>
 
 
@@ -93,15 +98,18 @@ __Request Parameters__:
 * user - The iRODS username associated with the request.
 
 __Request Body__:
+
     {
         "tickets" : ["ticket-id1", "ticket-id2"]
     }
 
 __Response Body__:
+
     {
         "action" : "delete-tickets",
         "tickets" : ["ticket-id1", "ticket-id2"]
     }
 
 __Curl Command__:
+
     curl -H "Content-Type:application/json" -d '{"tickets":["ticket-id1","ticket-id2"]}' http://127.0.0.1:4000/delete-tickets?user=<username>
