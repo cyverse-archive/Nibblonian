@@ -11,23 +11,23 @@ __Error Codes__: ERR_NOT_A_USER, ERR_DOES_NOT_EXIST, ERR_NOT_WRITEABLE
 __Request Parameters__:
 * user - The iRODS username of the user making the request.
 
+* public - Tells Nibblonian whether to make the ticket accessible to the public group. 
+           Setting it to 1 means that the ticket will be made publicly accessible. Any other value 
+           means that the ticket will not be accessible publicly. This parameter is optional and 
+           defaults to not making tickets public.
+
 __Request Body__:
     {
         "tickets" : [
             {
                 "path" : "/path/to/file/or/directory",
-                "ticket-id" : "String representation of a ticket.",
-                "expiry" : "Expiration date.",
-                "uses-limit" : "The number of times the ticket can be used."
+                "ticket-id" : "String representation of a ticket."
             }
         ]
     }
 
-The "ticket-id" field is the user supplied string that is associated with the ticket. This is a required field.
-
-The "expiry" field is the expiration date for the ticket. This is an optional field.
-
-The "uses-limit" field is the number of times that a ticket can be used before it expires. This is an optional field.
+The "ticket-id" field is the user supplied string that is associated with the ticket. This is a 
+required field.
 
 __Response Body__:
     {
@@ -45,7 +45,7 @@ __Response Body__:
 
 __Curl Command__:
 
-    curl -H "Content-Type:application/json" -d '{"tickets":[{"path" : "/path/to/file/or/directory","ticket-id" : "String representation of a ticket.","expiry" : "Expiration date.","uses-limit" : "The number of times the ticket can be used."}]}' http://127.0.0.1:3000/tickets?user=<username>
+    curl -H "Content-Type:application/json" -d '{"tickets":[{"path" : "/path/to/file/or/directory","ticket-id" : "String representation of a ticket."}]}' 'http://127.0.0.1:3000/tickets?user=<username>&public=1'
 
 
 Listing Tickets
