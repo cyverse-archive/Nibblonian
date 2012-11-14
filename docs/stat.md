@@ -15,6 +15,7 @@ Response:
         "action": "stat",
         "paths": {
             "/iplant/home/dennis/foo": {
+                "share-count" : 0,
                 "permissions" : {
                     "read" : true,
                     "write" : true,
@@ -28,6 +29,7 @@ Response:
             },
             "/iplant/home/dennis/foo.bar": null,
             "/iplant/home/dennis/foo.txt": {
+                "share-count" : 0,
                 "permissions" : {                          
                     "read" : true,
                     "write" : true,
@@ -43,4 +45,6 @@ Response:
     }
 
 Note that entries in the "paths" map that are directories will include "file-count" and "dir-count" fields, while file entries will not.
+
+The "share-count" field is provided for both files and directories and lists the number of users that a file is shared with.
 
