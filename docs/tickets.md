@@ -74,8 +74,22 @@ __Response Body__:
     {
         "action" : "list-tickets",
         "tickets" : {
-            "/path/to/file" : ["ticket-id1", "ticket-id2", "ticket-id3"],
-            "/path/to/dir"  : ["ticket-id4", "ticket-id5"]
+            "/path/to/file" : [
+                {
+                    "path" : "/path/to/file",
+                    "ticket-id" : "<ticket-id>",
+                    "expiry" : "<expiration date>",
+                    "uses-limit" : "<uses-limit",
+                }
+            ],
+            "/path/to/dir"  : [
+                {
+                    "path" : "/path/to/dir",
+                    "ticket-id" : "<ticket-id>",
+                    "expiry" : "<expiration date>",
+                    "uses-limit" : "<uses-limit",
+                }
+            ]
         }
     }
 
