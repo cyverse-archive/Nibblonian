@@ -85,7 +85,7 @@
    "Trash"
 
    (sharing? (ft/add-trailing-slash id))
-   "Sharing"
+   "Shared With Me"
 
    (community? id)
    "Community Data"
@@ -444,15 +444,20 @@
                        :dir-count  (count (get subs true))}))
     stat-map))
 
+(defn merge-shares
+  [stat-map cm user path]
+  (if (owns? cm user path)
+    (merge stat-map {:share-count (count-shares cm user path)})
+    stat-map))
+
 (defn path-stat
   [user path]
   (with-jargon (jargon-config) [cm]
     (validators/path-exists cm path)
-    (let [retval (stat cm path)]
-      (-> retval
-          (merge {:permissions (permissions cm user path)
-                  :share-count (count-shares cm user path)})
-          (merge-counts cm path)))))
+    (-> (stat cm path)
+        (merge {:permissions (permissions cm user path)})
+        (merge-shares cm user path)
+        (merge-counts cm path))))
 
 (defn- format-tree-urls
   [treeurl-maps]
