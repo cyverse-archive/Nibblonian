@@ -1,7 +1,11 @@
 (ns nibblonian.core
   (:gen-class)
   (:use compojure.core)
-  (:use [ring.middleware
+  (:use nibblonian.request-utils
+        nibblonian.controllers
+        nibblonian.config
+        nibblonian.error-codes
+        [ring.middleware
          params
          keyword-params
          nested-params
@@ -9,9 +13,6 @@
          cookies
          session
          stacktrace]
-        [nibblonian.request-utils]
-        [nibblonian.controllers]
-        [nibblonian.error-codes]
         [slingshot.slingshot :only [try+ throw+]])
   (:require [clojure.tools.cli :as cli] 
             [compojure.route :as route]
@@ -21,7 +22,9 @@
             [clojure.tools.logging :as log]
             [ring.adapter.jetty :as jetty]
             [nibblonian.irods-actions :as irods-actions])
-  (:import [org.irods.jargon.core.exception JargonRuntimeException JargonException]))
+  (:import [org.irods.jargon.core.exception
+            JargonRuntimeException
+            JargonException]))
 
 (defroutes nibblonian-routes
   (GET "/" [] "Welcome to Nibblonian!")
@@ -52,29 +55,15 @@
   
   (POST "/directory/create" request
         (trap "create"  do-create request))
+
+  (POST "/rename" request
+        (trap "rename" do-rename request))
   
-  (POST "/directory/rename" request
-        (trap "rename-directory" 
-               do-rename request irods-actions/rename-directory))
-  
-  (POST "/file/rename" request
-        (trap "rename-file"  do-rename request irods-actions/rename-file))
-  
-  (POST "/directory/delete" request
-        (trap "delete-dirs" 
-               do-delete request irods-actions/delete-dirs))
-  
-  (POST "/file/delete" request
-        (trap "delete-files"
-               do-delete request irods-actions/delete-files))
-  
-  (POST "/directory/move" request
-        (trap "move-dirs" 
-               do-move request irods-actions/move-directories))
-  
-  (POST "/file/move" request
-        (trap "move-files" 
-               do-move request irods-actions/move-files))
+  (POST "/delete" request
+        (trap "delete" do-delete request))
+
+  (POST "/move" request
+        (trap "move" do-move request))
   
   (GET "/file/download" request
        (trap "download" 
@@ -82,51 +71,27 @@
   
   (GET "/file/preview" request
        (trap "preview" 
-              do-preview request))
+             do-preview request))
   
   (GET "/file/manifest" request
        (trap "manifest" 
-              do-manifest request))
+             do-manifest request))
   
-  (GET "/file/metadata" request
+  (GET "/metadata" request
        (trap "get-metadata" 
-              do-metadata-get request))
+             do-metadata-get request))
   
-  (GET "/file/tree-urls" request
-       (trap "get-tree-urls" 
-              do-tree-get request))
-  
-  (GET "/directory/metadata" request
-       (trap "get-metadata" 
-              do-metadata-get request))
-  
-  (POST "/file/metadata" request
+  (POST "/metadata" request
         (trap "set-metadata" 
-               do-metadata-set request))
+              do-metadata-set request))
   
-  (POST "/file/metadata-batch" request
-        (trap "set-metadata-batch" 
-               do-metadata-batch-set request))
-  
-  (POST "/file/tree-urls" request
-        (trap "set-tree-urls" 
-               do-tree-set request))
-  
-  (POST "/directory/metadata" request
-        (trap "set-metadata" 
-               do-metadata-set request))
-  
-  (POST "/directory/metadata-batch" request
-        (trap "set-metadata-batch" 
-               do-metadata-batch-set request))
-  
-  (DELETE "/file/metadata" request
+  (DELETE "/metadata" request
           (trap "delete-metadata" 
-                 do-metadata-delete request))
-  
-  (DELETE "/directory/metadata" request
-          (trap "delete-metadata" 
-                 do-metadata-delete request))
+                do-metadata-delete request))
+
+  (POST "/metadata-batch" request
+        (trap "set-metadata-batch" 
+              do-metadata-batch-set request))
   
   (POST "/share" request
         (trap "share" do-share request))
@@ -142,6 +107,27 @@
        
   (GET "/quota" request
        (trap "quota-list" do-quota request))
+
+  (POST "/restore" request
+        (trap "restore" do-restore request))
+
+  (POST "/copy" request
+        (trap "copy" do-copy request))
+
+  (POST "/tickets" request
+        (trap "add-tickets" do-add-tickets request))
+
+  (POST "/delete-tickets" request
+        (trap "delete-tickets" do-remove-tickets request))
+
+  (POST "/list-tickets" request
+        (trap "list-tickets" do-list-tickets request))
+
+  (GET "/user-trash-dir" request
+       (trap "user-trash-dir" do-user-trash request))
+
+  (DELETE "/trash" request
+          (trap "delete-trash" do-delete-trash request))
   
   (route/not-found "Not Found!"))
 
