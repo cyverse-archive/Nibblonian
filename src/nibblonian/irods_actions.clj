@@ -210,6 +210,11 @@
   ([user root-path set-own?]
     (with-jargon (jargon-config) [cm]
       (validators/user-exists cm user)
+
+      (when (and (= root-path (user-trash-dir user)) (not (exists? cm root-path)))
+        (mkdir cm root-path)
+        (set-permissions cm user root-path false false true))
+      
       (validators/path-exists cm root-path)
 
       (when (and set-own? (not (owns? cm user root-path)))
