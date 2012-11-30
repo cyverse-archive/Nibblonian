@@ -236,13 +236,14 @@
   [user path]
   (log/debug (str "create " user " " path))
   (with-jargon (jargon-config) [cm]
-    (validators/user-exists cm user)
-    (validators/path-writeable cm user (ft/dirname path))
-    (validators/path-not-exists cm path)
-    
-    (mkdir cm path)
-    (set-owner cm path user)
-    {:path path :permissions (collection-perm-map cm user path)}))
+    (let [fixed-path (ft/rm-last-slash path)]
+      (validators/user-exists cm user)
+      (validators/path-writeable cm user (ft/dirname fixed-path))
+      (validators/path-not-exists cm fixed-path)
+      
+      (mkdir cm fixed-path)
+      (set-owner cm fixed-path user)
+      {:path fixed-path :permissions (collection-perm-map cm user fixed-path)})))
 
 (defn source->dest
   [source-path dest-path]
