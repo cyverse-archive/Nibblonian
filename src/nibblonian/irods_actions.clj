@@ -445,7 +445,7 @@
   (if (is-dir? cm path)
     (let [subs (group-by #(is-dir? cm %) (mapv #(.getAbsolutePath %) (list-in-dir cm path)))]
       (merge stat-map {:file-count (count (get subs false))
-                       :dir-count  (count (get subs true))}))
+                      :dir-count  (count (get subs true))}))
     stat-map))
 
 (defn merge-shares
@@ -682,9 +682,10 @@
   [cm user p]
   (let [file-basename (ft/basename p)
         user-trash    (user-trash-dir user)]
-    (if (exists? cm (ft/path-join user-trash file-basename))
-      (incremented-trash-path cm user p)
-      (ft/path-join user-trash file-basename))))
+    (incremented-trash-path cm user p)
+    #_(if (exists? cm (ft/path-join user-trash file-basename))
+        (incremented-trash-path cm user p)
+        (ft/path-join user-trash file-basename))))
 
 (defn move-to-trash
   [cm p user]
@@ -729,7 +730,7 @@
   [cm user path]
   (let [user-home   (user-home-dir user)
         origin-path (trash-origin-path cm user path)
-        inc-path    #(str origin-path "." %)]
+        inc-path    #(str origin-path "." %)]    
     (if-not (exists? cm origin-path)
       origin-path
       (loop [attempts 0]
@@ -743,9 +744,11 @@
   (log/warn (ft/dirname path))
   (when-not (exists? cm (ft/dirname path))
     (mkdirs cm (ft/dirname path))
+    (log/warn "Created " (ft/dirname path))
+    
     (loop [parent (ft/dirname path)]
       (when (and (not= parent (user-home-dir user)) (not (owns? cm user parent)))
-        (log/warn (str "Restoring parent dir: " parent))
+        (log/warn (str "Restoring ownership of parent dir: " parent))
         (set-owner cm parent user)
         (recur (ft/dirname parent))))))
 
@@ -759,10 +762,24 @@
     (let [retval (atom (hash-map))]
       (doseq [path paths]
         (let [fully-restored (restoration-path cm user path)]
+          (log/warn "Restoring " path " to " fully-restored)
+          
           (validators/path-not-exists cm fully-restored)
+          (log/warn fully-restored " does not exist. That's good.")
+          
           (restore-parent-dirs cm user fully-restored)
+          (log/warn "Done restoring parent dirs for " fully-restored)
+          
           (validators/path-writeable cm user (ft/dirname fully-restored))
+          (log/warn fully-restored "is writeable. That's good.")
+
+          (log/warn "Moving " path " to " fully-restored)
+          (validators/path-not-exists cm fully-restored)
+          
+          (log/warn fully-restored " does not exist. That's good.")
           (move cm path fully-restored)
+          (log/warn "Done moving " path " to " fully-restored)
+          
           (reset! retval (assoc @retval path fully-restored))))
       {:restored @retval})))
 
