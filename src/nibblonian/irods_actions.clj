@@ -245,6 +245,27 @@
       (set-owner cm fixed-path user)
       {:path fixed-path :permissions (collection-perm-map cm user fixed-path)})))
 
+(defn create-all
+  "Creates a directory at 'path' in iRODS and sets the user to 'user'.
+
+   Parameters:
+     user - String containing the username of the user requesting the
+         directory.
+     path - The path that the directory will be created at in iRODS.
+
+   Returns a map of the format {:action \"create\" :path \"path\"}"
+  [user path]
+  (log/debug (str "create " user " " path))
+  (with-jargon (jargon-config) [cm]
+    (let [fixed-path (ft/rm-last-slash path)]
+      (validators/user-exists cm user)
+      #_(validators/path-writeable cm user (ft/dirname fixed-path))
+      (validators/path-not-exists cm fixed-path)
+      
+      (mkdirs cm fixed-path)
+      (set-owner cm fixed-path user)
+      {:path fixed-path :permissions (collection-perm-map cm user fixed-path)})))
+
 (defn source->dest
   [source-path dest-path]
   (ft/path-join dest-path (ft/basename source-path)))

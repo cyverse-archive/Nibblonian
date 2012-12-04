@@ -1,18 +1,34 @@
 Directory Creation
 ------------------
-Action: "create"
+__URL Path__: /directory/create
 
-Error codes: ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_NOT_A_USER
+__HTTP Method__: POST
 
-Curl command:
+__Action__: create
 
-    curl -H "Content-Type:application/json" -d '{"path" : "/tempZone/home/rods/test3"}' http://127.0.0.1:3000/directory/create
+__Error codes__: ERR_NOT_WRITEABLE, ERR_EXISTS, ERR_NOT_A_USER
 
-The response body:
+__Request Query Parameters__:
+* user - The iRODS username of the user making the request.
+
+__Request Body__:
+
+    {
+        "path" : "/tempZone/home/rods/test3"
+    }
+
+__Response__:
 
     {
        "action":"create",
        "path":"\/tempZone\/home\/rods\/test3",
        "status":"success"
     }
+
+__Curl Command__:
+
+    curl -H "Content-Type:application/json" -d '{"path" : "/tempZone/home/rods/test3"}' http://127.0.0.1:3000/directory/create
+
+
+
 

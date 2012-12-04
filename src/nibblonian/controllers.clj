@@ -244,6 +244,26 @@
 
     (irods-actions/create user path)))
 
+(defn do-create-all
+  [request]
+  (log/debug "do-create")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:path string?})
+    (bad-body request {:path string?}))
+
+  (let [body-json (:body request)
+        user      (query-param request "user")
+        path      (:path body-json)]
+    (log/info (str "Body: " body-json))
+
+    (when (super-user? user)
+      (throw+ {:error_code ERR_NOT_AUTHORIZED :user user}))
+
+    (irods-actions/create-all user path)))
+
 (defn do-metadata-get
   [request]
   (log/debug "do-metadata-get")

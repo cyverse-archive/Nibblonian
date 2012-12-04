@@ -56,6 +56,9 @@
   (POST "/directory/create" request
         (trap "create"  do-create request))
 
+  (POST "/directory/create-all" request
+        (trap "create" do-create-all request))
+
   (POST "/rename" request
         (trap "rename" do-rename request))
   
