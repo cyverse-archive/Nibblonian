@@ -3,7 +3,7 @@ Nibblonian
 
 This is a REST-like HTTP API for iRODS written on top of jargon-core.
 
-Documentation is available in the docs directory.
+__Documentation is available in the docs directory of this git repo. If you're browsing on github, look farther up the page.__
 
 A successful call will have a 200 status code, while an error will have either a 404 or 500 status code. You must set the "Content-Type" header to "application/json" for any POST requests that upload JSON. Failing to do so will result in an error message.
 
