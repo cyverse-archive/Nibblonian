@@ -670,22 +670,31 @@
     (validators/user-exists cm user)
     {:trash (user-trash-dir user)}))
 
+(def alphanums (concat (range 48 58) (range 65 91) (range 97 123)))
+
+(defn rand-str
+  [length]
+  (apply str (take length (repeatedly #(char (rand-nth alphanums))))))
+
+(defn increment-path
+  [user path-to-inc attempts]
+  (ft/path-join
+   (user-trash-dir user)
+   (str (ft/basename path-to-inc) "." (rand-str 7) "."  attempts)))
+
 (defn incremented-trash-path
   [cm user p]
-  (let [inc-path #(ft/path-join (user-trash-dir user) (str (ft/basename p) "." %))]
-    (loop [attempts 0]
-      (if (exists? cm (inc-path attempts))
+  (loop [attempts 0]
+    (let [inc-path (increment-path user p attempts)]
+      (if (exists? cm inc-path)
         (recur (inc attempts))
-        (inc-path attempts)))))
+        inc-path))))
 
 (defn generated-trash-path
   [cm user p]
   (let [file-basename (ft/basename p)
         user-trash    (user-trash-dir user)]
-    (incremented-trash-path cm user p)
-    #_(if (exists? cm (ft/path-join user-trash file-basename))
-        (incremented-trash-path cm user p)
-        (ft/path-join user-trash file-basename))))
+    (incremented-trash-path cm user p)))
 
 (defn move-to-trash
   [cm p user]
