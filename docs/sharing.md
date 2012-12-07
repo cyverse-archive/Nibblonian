@@ -23,7 +23,7 @@ Request body JSON:
 
 Curl command:
 
-    curl -H "Content-Type:application/json" -d '{"path" : "/path/to/shared/file", "user" : "shared-with-user", "permissions" : {"read" : true, "write" : true, "own" : false}}' http://nibblonian.yourhostname.org/share?user=fileowner
+    curl -H "Content-Type:application/json" -d '{"path" : "/path/to/shared/file", "users" : ["shared-with-user"], "permissions" : {"read" : true, "write" : true, "own" : false}}' http://nibblonian.yourhostname.org/share?user=fileowner
 
 The response body:
 
