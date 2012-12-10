@@ -363,7 +363,6 @@
     (validators/path-exists cm path)
     (validators/path-readable cm user path)
     {:metadata (list-path-metadata cm path)}))
-
 (defn metadata-set
   [user path avu-map]
   (with-jargon (jargon-config) [cm]
@@ -676,29 +675,34 @@
   [length]
   (apply str (take length (repeatedly #(char (rand-nth alphanums))))))
 
-(defn increment-path
+(defn randomized-trash-path
+  [user path-to-inc]
+  (ft/path-join
+   (user-trash-dir user)
+   (str (ft/basename path-to-inc) "." (rand-str 7))))
+
+#_(defn increment-path
   [user path-to-inc attempts]
   (ft/path-join
    (user-trash-dir user)
-   (str (ft/basename path-to-inc) "." (rand-str 7) "."  attempts)))
+   (str (ft/basename path-to-inc) "." attempts)))
 
-(defn incremented-trash-path
+#_(defn incremented-trash-path
   [cm user p]
   (loop [attempts 0]
-    (let [inc-path (increment-path user p attempts)]
-      (if (exists? cm inc-path)
-        (recur (inc attempts))
-        inc-path))))
+    (if (exists? cm (increment-path user p attempts))
+      (recur (inc attempts))
+      (randomized-increment-path user p attempts))))
 
-(defn generated-trash-path
+#_(defn generated-trash-path
   [cm user p]
   (let [file-basename (ft/basename p)
         user-trash    (user-trash-dir user)]
-    (incremented-trash-path cm user p)))
+    (randomized-trash-path cm user p)))
 
 (defn move-to-trash
   [cm p user]
-  (let [trash-path (generated-trash-path cm user p)]
+  (let [trash-path (randomized-trash-path user p)]
     (move cm p trash-path)
     (set-metadata cm trash-path "ipc-trash-origin" p IPCSYSTEM)))
 
