@@ -2,6 +2,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as ds]
             [clojure.data.codec.base64 :as b64]
+            [clojure.set :as set]
             [ring.util.codec :as cdc]
             [clojure.data.json :as json]
             [clojure-commons.file-utils :as ft]
@@ -148,6 +149,22 @@
     #(.isDirectory %1)
     (list-in-dir cm fixed-path)))
 
+(defn string-contains?
+  [container-str str-to-check]
+  (pos? (count (set/intersection (set container-str) (set str-to-check)))))
+
+(defn valid-file-map?
+  [map-to-check]
+  (not (string-contains? (filter-chars) (:id map-to-check))))
+
+(defn file-listing
+  [cm user file-entries fixed-path filter-files]
+  (filterv valid-file-map? (list-files cm user file-entries fixed-path filter-files)))
+
+(defn dir-listing
+  [cm user file-entries fixed-path filter-files]
+  (filterv valid-file-map? (list-dirs cm user file-entries fixed-path filter-files)))
+
 (defn gen-listing
   [cm user path filter-files include-files]
   (let [fixed-path   (ft/rm-last-slash path)
@@ -155,9 +172,9 @@
         parted-files (partition-files-folders cm fixed-path)
         dir-entries  (or (get parted-files true) (vector))
         file-entries (or (get parted-files false) (vector))
-        dirs         (list-dirs cm user dir-entries fixed-path ff)
+        dirs         (dir-listing cm user dir-entries fixed-path ff)
         add-files    #(if include-files
-                        (assoc %1 :files (list-files cm user file-entries fixed-path ff))
+                        (assoc %1 :files (file-listing cm user file-entries fixed-path ff))
                         %1)]
     (-> {}
         (assoc
