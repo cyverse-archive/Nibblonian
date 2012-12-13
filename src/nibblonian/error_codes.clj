@@ -66,12 +66,19 @@
     (.printStackTrace exception print-writer)
     (str string-writer)))
 
+(defn trace-element-str
+  [trace-elems]
+  (let [sb (StringBuilder.)]
+    (doseq [te trace-elems]
+      (.append sb (str te "\n")))
+    (str sb)))
+
 (defn trap [action func & args]
   (try+
     (success-resp action (apply func args))
     (catch error? err
-      (log/error (format-exception (:throwable &throw-context)))
-      (err-resp action (:object &throw-context)))
+      (log/error (str err "\n" (trace-element-str (:stack-trace &throw-context))))
+      (err-resp action err))
     (catch java.lang.Exception e
-      (log/error (format-exception (:throwable &throw-context)))
+      (log/error e)
       (err-resp action (unchecked &throw-context)))))
