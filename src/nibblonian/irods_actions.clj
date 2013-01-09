@@ -651,7 +651,7 @@
 
 (defn sharing-data
   [cm user root-dir inc-files filter-files]
-  (list-dir cm user (ft/rm-last-slash root-dir) inc-files filter-files))
+  (list-dir user (ft/rm-last-slash root-dir) inc-files filter-files false))
 
 (defn shared-root-listing
   [user root-dir inc-files filter-files]
