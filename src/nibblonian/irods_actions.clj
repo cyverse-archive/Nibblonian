@@ -632,15 +632,15 @@
 
           ;;Mark the user's home directory as having a file shared with the user.
           (add-user-shared-with cm (ft/path-join base-dir "home" user) share-with)
-          
-          ;;Set the actual permissions on the file/directory.
-          (set-permissions cm share-with fpath read-perm write-perm own-perm true)
-          
+
           ;;If the shared item is a directory, then it needs the inheritance 
           ;;bit set. Otherwise, any files that are added to the directory will
           ;;not be shared.
           (when (is-dir? cm fpath)
-            (.setAccessPermissionInherit (:collectionAO cm) (irods-zone) fpath true)))))
+            (.setAccessPermissionInherit (:collectionAO cm) (irods-zone) fpath true))
+          
+          ;;Set the actual permissions on the file/directory.
+          (set-permissions cm share-with fpath read-perm write-perm own-perm false))))
     
     {:user share-withs
      :path fpaths
