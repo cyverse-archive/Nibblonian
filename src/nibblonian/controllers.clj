@@ -97,6 +97,10 @@
           share-f    (future (gen-sharing-data user inc-files))
           home-f     (future (dir-list user (get-home-dir user) inc-files))]
       {:roots [@home-f @comm-f @share-f]})
+
+    (= (utils/add-trailing-slash (query-param request "path")) (irods-home))
+    (let [user (query-param request "user")]
+      (irods-actions/shared-root-listing user (irods-home) (include-files? request) []))
     
     :else
     ;;; There's a path parameter, so simply list the directory.  
