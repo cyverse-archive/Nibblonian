@@ -597,11 +597,24 @@
   "Decrements the number of objs shared with a specific user and removes the entire AVU if that
    number isn't positive."
   [cm fpath shared-with]
+  (log/debug "entered dec-user-shared-with")
   (let [curr-val (number-of-objs-shared-with-user cm fpath shared-with)
         new-val  (dec curr-val)]
+    (log/debug "dec-user-shared-with - curr-val: " curr-val)
+    (log/debug "dec-user-shared-with - new-val: " new-val)
     (if-not (pos? new-val)
-      (delete-avu cm fpath (first (get-avus-by-collection cm fpath shared-with shared-with-attr)))
-      (set-metadata cm fpath shared-with (str new-val) shared-with-attr))))
+      (do
+        (log/debug "dec-user-shared-with - before delete-avu")
+        (delete-avu cm fpath (first (get-avus-by-collection cm fpath shared-with shared-with-attr)))
+        (log/debug "dec-user-shared-with - after delete-avu"))
+      (do
+        (log/debug "dec-user-shared-with - before set-metadata")
+        (set-metadata cm fpath shared-with (str new-val) shared-with-attr)
+        (log/debug "dec-user-shared-with - after set-metadata")))))
+
+(defn shared?
+  [cm share-with fpath]
+  (:read (permissions cm share-with fpath)))
 
 (defn share
   [user share-withs fpaths perms]
@@ -630,17 +643,18 @@
                 (set-permissions cm share-with dir-path true curr-write curr-own)
                 (recur (ft/dirname dir-path)))))
 
-          ;;Mark the user's home directory as having a file shared with the user.
-          (add-user-shared-with cm (ft/path-join base-dir "home" user) share-with)
+          (when-not (shared? cm share-with fpath)
+            ;;Mark the user's home directory as having a file shared with the user.
+            (add-user-shared-with cm (ft/path-join base-dir "home" user) share-with)
 
-          ;;If the shared item is a directory, then it needs the inheritance 
-          ;;bit set. Otherwise, any files that are added to the directory will
-          ;;not be shared.
-          (when (is-dir? cm fpath)
-            (.setAccessPermissionInherit (:collectionAO cm) (irods-zone) fpath true))
-          
-          ;;Set the actual permissions on the file/directory.
-          (set-permissions cm share-with fpath read-perm write-perm own-perm false))))
+            ;;If the shared item is a directory, then it needs the inheritance 
+            ;;bit set. Otherwise, any files that are added to the directory will
+            ;;not be shared.
+            (when (is-dir? cm fpath)
+              (.setAccessPermissionInherit (:collectionAO cm) (irods-zone) fpath true))
+            
+            ;;Set the actual permissions on the file/directory.
+            (set-permissions cm share-with fpath read-perm write-perm own-perm false)))))
     
     {:user share-withs
      :path fpaths
@@ -665,27 +679,53 @@
 (defn unshare
   "Allows 'user' to unshare file 'fpath' with user 'unshare-with'."
   [user unshare-withs fpaths]
+  (log/debug "entered unshare")
+  
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     (validators/all-users-exist cm unshare-withs)
     (validators/all-paths-exist cm fpaths)
     (validators/user-owns-paths cm user fpaths)
 
+    (log/debug "unshare - after validators")
+    (log/debug "unshare - user: " user)
+    (log/debug "unshare - unshare-withs: " unshare-withs)
+    (log/debug "unshare - fpaths: " fpaths)
+    
     (doseq [unshare-with unshare-withs]
       (doseq [fpath fpaths]
-        (let [base-dir    (ft/path-join "/" (irods-zone))
+        (let [base-dir    (ft/path-join "/" (irods-zone) "home")
               parent-path (ft/dirname fpath)]
-          (remove-permissions cm unshare-with fpath)
-          
           (when-not (and (contains-subdir? cm parent-path)
                          (some-subdirs-readable? cm user parent-path))
             (loop [dir-path parent-path]
+              (log/debug "unshare - dir-path: " dir-path)
               (when-not (or (= dir-path base-dir)
                             (contains-accessible-obj? cm unshare-with dir-path))
+                (log/debug "unshare - removing permissions")
                 (remove-permissions cm unshare-with dir-path)
+                (log/debug "unshare - done removing permissions.")
                 (recur (ft/dirname dir-path)))))
 
-          (dec-user-shared-with cm (ft/path-join base-dir "home" user) unshare-with)))))
+          (log/debug "after removing permissions.")
+          
+          (when (shared? cm unshare-with fpath)
+            (log/debug "unshare - removing permissions...")
+            (remove-permissions cm unshare-with fpath)
+            (log/debug "unshare - done removing permissions")
+            (log/debug "unshare - decrementing number of shared files/dirs")
+            (log/debug "unshare - number of shared objs: "
+                       (number-of-objs-shared-with-user cm (ft/path-join base-dir user) unshare-with))
+            (dec-user-shared-with cm (ft/path-join base-dir user) unshare-with)
+            (log/debug "unshare - done decrementing number of shared files/dirs")
+
+            (let [user-dir   (ft/path-join base-dir user)
+                  num-shared (number-of-objs-shared-with-user cm user-dir unshare-with)]
+              (when-not (pos? num-shared)
+                (log/debug "unshare - number of shared objects: " num-shared)
+                (log/debug "unshare - removing access on " user-dir " for " unshare-with)
+                (remove-permissions cm unshare-with user-dir)
+                (log/debug "unshare - done removing access on " user-dir " for " unshare-with))))))))
   
   {:user unshare-withs
    :path fpaths})
