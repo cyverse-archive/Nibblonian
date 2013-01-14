@@ -696,23 +696,11 @@
       (doseq [fpath fpaths]
         (let [base-dir    (ft/path-join "/" (irods-zone) "home")
               parent-path (ft/dirname fpath)]
-          (when-not (and (contains-subdir? cm parent-path)
-                         (some-subdirs-readable? cm user parent-path))
-            (loop [dir-path parent-path]
-              (log/debug "unshare - dir-path: " dir-path)
-              (when-not (or (= dir-path base-dir)
-                            (contains-accessible-obj? cm unshare-with dir-path))
-                (log/debug "unshare - removing permissions")
-                (remove-permissions cm unshare-with dir-path)
-                (log/debug "unshare - done removing permissions.")
-                (recur (ft/dirname dir-path)))))
-
-          (log/debug "after removing permissions.")
-          
           (when (shared? cm unshare-with fpath)
             (log/debug "unshare - removing permissions...")
             (remove-permissions cm unshare-with fpath)
             (log/debug "unshare - done removing permissions")
+            
             (log/debug "unshare - decrementing number of shared files/dirs")
             (log/debug "unshare - number of shared objs: "
                        (number-of-objs-shared-with-user cm (ft/path-join base-dir user) unshare-with))
@@ -725,7 +713,24 @@
                 (log/debug "unshare - number of shared objects: " num-shared)
                 (log/debug "unshare - removing access on " user-dir " for " unshare-with)
                 (remove-permissions cm unshare-with user-dir)
-                (log/debug "unshare - done removing access on " user-dir " for " unshare-with))))))))
+                (log/debug "unshare - done removing access on " user-dir " for " unshare-with))))
+
+          (log/debug "unshare - parent path: " parent-path)
+          (log/debug "unshare - contains-subdir? " (contains-subdir? cm parent-path))
+          (log/debug "unshare - some-subdirs-readable? " (some-subdirs-readable? cm unshare-with parent-path))
+          
+          (when-not (and (contains-subdir? cm parent-path)
+                         (some-subdirs-readable? cm unshare-with parent-path))
+            (loop [dir-path parent-path]
+              (log/debug "unshare - dir-path: " dir-path)
+              (when-not (or (= dir-path base-dir)
+                            (contains-accessible-obj? cm unshare-with dir-path))
+                (log/debug "unshare - removing permissions")
+                (remove-permissions cm unshare-with dir-path)
+                (log/debug "unshare - done removing permissions.")
+                (recur (ft/dirname dir-path)))))
+
+          (log/debug "after removing permissions.")))))
   
   {:user unshare-withs
    :path fpaths})
@@ -742,7 +747,9 @@
        :date-modified (date-mod-from-stat stat)
        :permissions   (collection-perm-map cm user %1)
        :file-size     (size-from-stat stat)))
-   (list-collections-with-attr-units cm user shared-with-attr)))
+   (filterv
+    #(is-readable? cm user %1)
+    (list-collections-with-attr-units cm user shared-with-attr))))
 
 (defn list-sharing
   [cm user path]
