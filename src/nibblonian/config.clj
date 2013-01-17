@@ -65,6 +65,14 @@
 
 (def jg-cfg (atom nil))
 
+(defn log-config
+  "Logs all of the configuration values at a log level of WARN. Excludes database password from the
+   log output."
+  [props]
+  (let [not-password? #(not= (first %1) "nibblonian.irods.password")]
+    (doseq [prop-pair (filter not-password? (seq props))]
+      (log/warn (first prop-pair) " = " (last prop-pair)))))
+
 (defn jargon-config [] @jg-cfg)
 
 (defn jargon-init
@@ -91,7 +99,8 @@
          "THIS APPLICATION CANNOT RUN ON THIS MACHINE. SO SAYETH ZOOKEEPER.")
         (log/warn "THIS APPLICATION WILL NOT EXECUTE CORRECTLY."))
       (reset! props (cl/properties "nibblonian")))) 
-  (reset! jg-cfg (jargon-init)))
+  (reset! jg-cfg (jargon-init))
+  (log-config @props))
 
 (defn local-init
   [local-config-path]
