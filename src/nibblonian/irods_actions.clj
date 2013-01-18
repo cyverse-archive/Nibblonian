@@ -278,7 +278,7 @@
       (validators/all-paths-exist cm sources)
       (validators/all-paths-exist cm [dest])
       (validators/path-is-dir cm dest)
-      (validators/all-paths-writeable cm user sources)
+      (validators/user-owns-paths cm user sources)
       (validators/path-writeable cm user dest)
       (validators/no-paths-exist cm dest-paths)
       (move-all cm sources dest)
@@ -290,7 +290,7 @@
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     (validators/path-exists cm source)
-    (validators/path-writeable cm user source)
+    (validators/ownage? cm user source)
     (validators/path-not-exists cm dest)
     
     (let [result (move cm source dest)]
@@ -852,7 +852,7 @@
     (with-jargon (jargon-config) [cm]
       (validators/user-exists cm user)
       (validators/all-paths-exist cm paths)
-      (validators/all-paths-writeable cm user paths)
+      (validators/user-owns-paths cm user paths)
       
       (when (some true? (mapv home-matcher paths))
         (throw+ {:error_code ERR_NOT_AUTHORIZED 
