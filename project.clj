@@ -1,12 +1,12 @@
 (defproject nibblonian/nibblonian "0.2.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [org.clojure/java.jdbc "0.1.0"]
-                 [org.clojure/data.json "0.1.1"]
                  [org.clojure/tools.logging "0.2.3"]
                  [org.clojure/java.classpath "0.1.0"]
                  [org.clojure/data.codec "0.1.0"]
-                 [org.iplantc/clojure-commons "1.3.1-SNAPSHOT"]
+                 [org.iplantc/clojure-commons "1.4.0-SNAPSHOT"]
                  [org.iplantc/clj-jargon "0.2.2-SNAPSHOT"]
+                 [cheshire "5.0.1"]
                  [clj-http "0.3.2"]
                  [com.cemerick/url "0.0.7"]
                  [compojure "1.0.1"]
@@ -21,7 +21,7 @@
          :handler nibblonian.core/app}
   :profiles {:dev
              {:resource-paths ["local-conf"],
-              :dependencies [[clj-http "0.3.2"] 
+              :dependencies [[clj-http "0.3.2"]
                              [org.cloudhoist/stevedore "0.7.1"]
                              [criterium "0.2.1"]]}}
   :iplant-rpm {:summary "nibblonian"

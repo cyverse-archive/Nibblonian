@@ -1,7 +1,7 @@
 (ns nibblonian.error-codes
   (use [slingshot.slingshot :only [try+]])
-  (require [clojure.tools.logging :as log]
-           [clojure.data.json :as json]))
+  (require [cheshire.core :as cheshire]
+           [clojure.tools.logging :as log]))
 
 (def ERR_DOES_NOT_EXIST          "ERR_DOES_NOT_EXIST")
 (def ERR_EXISTS                  "ERR_EXISTS")
@@ -38,23 +38,23 @@
    :body (-> err-obj
            (assoc :action action)
            (assoc :status "failure")
-           json/json-str)})
+           cheshire/encode)})
 
 (defn success-resp [action retval]
   (if (= (:status retval) 200)
     retval
     {:status 200
      :body
-     (cond     
+     (cond
        (map? retval)
        (-> retval
          (assoc :status "success"
                 :action action)
-         json/json-str)
-       
+         cheshire/encode)
+
        (not (string? retval))
      (.toString retval)
-     
+
      :else retval)}))
 
 (defn format-exception

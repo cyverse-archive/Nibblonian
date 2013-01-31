@@ -1,7 +1,7 @@
 (ns nibblonian.request-utils
   (:use [nibblonian.error-codes]
         [slingshot.slingshot :only [try+ throw+]])
-  (:require [clojure.data.json :as json]
+  (:require [cheshire.core :as cheshire]
             [clojure.tools.logging :as log]
             [ring.util.response :as rsp-utils]))
 
@@ -10,7 +10,7 @@
   [a-string]
   (log/debug (str "json? " a-string))
   (if (try
-        (json/read-json a-string)
+        (cheshire/decode a-string)
         (catch Exception e false))
     true false))
 
@@ -32,7 +32,7 @@
   (filter (comp not nil?)
           (for [[field-name validator?] map-spec]
             (if (contains? a-map field-name)
-              (when-not (validator? (get a-map field-name)) 
+              (when-not (validator? (get a-map field-name))
                 field-name)
               field-name))))
 
@@ -49,7 +49,7 @@
   [json-string map-spec]
   (log/debug (str "parse-json " json-string " " map-spec))
   (if (json? json-string)
-    (let [obj (json/read-json json-string)]
+    (let [obj (cheshire/decode json-string true)]
       (if (map-is-valid? obj map-spec)
         obj
         (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
@@ -104,11 +104,11 @@
   ([results content-type]
     (log/debug (str "create-response " results))
     (let [status (if-not (is-failed? results) 200 400)
-          body (json/json-str results)
+          body (cheshire/encode results)
           retval (merge
                    (rsp-utils/content-type (rsp-utils/response "") content-type)
                    {:status status :body body})]
-      (log/info (str "Returning " (json/json-str retval)))
+      (log/info (str "Returning " (cheshire/encode retval)))
       retval)))
 
 (defn valid-body?
@@ -116,22 +116,22 @@
   (cond
     (not (map? (:body request)))
     false
-    
+
     (not (map-is-valid? (:body request) body-spec))
     false
-    
+
     :else
     true))
 
-(defn bad-body 
+(defn bad-body
   [request body-spec]
   (when-not (map? (:body request))
     (throw+ {:error_code ERR_INVALID_JSON}))
-  
+
   (when-not (map-is-valid? (:body request) body-spec)
     (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
              :fields (invalid-fields  (:body request) body-spec)}))
-  
+
   {:status "success"})
 
 (defn bad-query [key]

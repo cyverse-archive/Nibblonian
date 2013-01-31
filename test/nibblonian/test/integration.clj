@@ -2,8 +2,8 @@
   (:use [clojure.test]
         [pallet.stevedore]
         [pallet.stevedore.bash])
-  (:require [clj-http.client :as cl]
-            [clojure.data.json :as json]
+  (:require [cheshire.core :as cheshire]
+            [clj-http.client :as cl]
             [clojure.java.io :as io]
             [pallet.common.shell :as shell]))
 
@@ -40,14 +40,14 @@
       {:content-type :json
        :query-params {"user" ~user
                       "path" ~path}
-       :body (json/json-str ~body-map)
+       :body (cheshire/encode ~body-map)
        :throw-exceptions false}))
 
 (defmacro postjson [url body-map user]
   `(cl/post ~url
       {:content-type :json
        :query-params {"user" ~user}
-       :body (json/json-str ~body-map)
+       :body (cheshire/encode ~body-map)
        :throw-exceptions false}))
 
 (defmacro getjson [url user path]
@@ -71,7 +71,7 @@
 (defn put-file [remote-dir local-filepath]
   (shell/bash
     (with-script-language :pallet.stevedore.bash/bash
-      (script 
+      (script
         (icd ~(user-path remote-dir))
         (iput ~local-filepath)))))
 
@@ -81,7 +81,7 @@
 
 (deftest test-create
   (let [resp (create-dir "test-create0")
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "create"))
@@ -97,18 +97,18 @@
   (spit "test-2.txt" "test-2")
   (put-file "test-move-files0" "test-1.txt")
   (put-file "test-move-files0" "test-2.txt")
-  
+
   (let [reqj {:sources [(user-path "test-move-files0/test-1.txt")
                         (user-path "test-move-files0/test-2.txt")]
               :dest (user-path "test-move-files1")}
         resp (postjson move-files reqj nuser)
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "move-files"))
     (is (= (:sources body) (:sources reqj)))
     (is (= (:dest body) (:dest reqj))))
-  
+
   (delete-dir "test-move-files0")
   (delete-dir "test-move-files1")
   (io/delete-file "test-1.txt")
@@ -118,18 +118,18 @@
   (create-dir "test-move-dir0")
   (create-dir "test-move-dir1")
   (create-dir "test-move-dir2")
-  
+
   (let [reqj {:sources [(user-path "test-move-dir1")
                         (user-path "test-move-dir2")]
               :dest (user-path "test-move-dir0")}
         resp (postjson move-dirs reqj nuser)
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "move-dirs"))
     (is (= (:sources body) (:sources reqj)))
     (is (= (:dest body) (:dest reqj))))
-  
+
   (delete-dir "test-move-dir0/test-move-dir1")
   (delete-dir "test-move-dir0/test-move-dir2"))
 
@@ -138,7 +138,7 @@
   (let [reqj {:source (user-path "test-move-dir0")
               :dest (user-path "test-move-dir1")}
         resp (postjson rename-dir reqj nuser)
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "rename-directory"))
@@ -153,7 +153,7 @@
   (let [reqj {:source (user-path "test-rename0/test-rename0.txt")
               :dest (user-path "test-rename0/test-rename1.txt")}
         resp (postjson rename-file reqj nuser)
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "rename-file"))
@@ -164,10 +164,10 @@
 
 (deftest test-delete-dirs
   (create-dir "test-create0")
-  
+
   (let [reqj {:paths [(user-path "test-create0")]}
         resp (postjson delete-dirs reqj nuser)
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "delete-dirs"))
@@ -182,7 +182,7 @@
   (let [reqj {:paths [(user-path "test-delete-files0/test-delete0.txt")
                       (user-path "test-delete-files0/test-delete1.txt")]}
         resp (postjson delete-files reqj nuser)
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "delete-files"))
@@ -196,7 +196,7 @@
   (spit "test-preview.txt" "testing preview")
   (put-file "test-preview" "test-preview.txt")
   (let [resp (getjson preview nuser "test-preview/test-preview.txt")
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action "preview")))
@@ -209,7 +209,7 @@
   (spit "test-manifest.txt" "testing manifest")
   (put-file "test-manifest" "test-manifest.txt")
   (let [resp (getjson manifest nuser "test-manifest/test-manifest.txt")
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "manifest"))
@@ -224,7 +224,7 @@
   (let [reqj {:paths [(user-path "test-exists")
                       (user-path "test-exists1")]}
         resp (postjson exists reqj nuser)
-        body (json/read-json (:body resp) false)]
+        body (cheshire/decode (:body resp))]
     (is (= (:status resp) 200))
     (is (= (get body "status") "success"))
     (is (= (get body "action") "exists"))
@@ -241,7 +241,7 @@
               :value "test-value"
               :unit "test-unit"}
         resp (postpathjson file-metadata reqj nuser (user-path "test-file-metadata/test-file-metadata.txt"))
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "set-metadata"))
@@ -264,7 +264,7 @@
                      :unit "test-unit2"}]
               :delete ["test-attr0" "test-attr00"]}
         resp (postpathjson file-metadata-batch reqj nuser (user-path "test-file-metadata-batch/lol.txt"))
-        body (json/read-json (:body resp))]
+        body (cheshire/decode (:body resp) true)]
     (is (= (:status resp) 200))
     (is (= (:status body) "success"))
     (is (= (:action body) "set-metadata-batch"))

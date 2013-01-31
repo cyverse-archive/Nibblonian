@@ -1,7 +1,8 @@
 (ns nibblonian.json-body
-  (:use [nibblonian.error-codes]
+  (:use [clojure.java.io :only [reader]]
+        [nibblonian.error-codes]
         [slingshot.slingshot :only [try+ throw+]])
-  (:require [clojure.data.json :as json]
+  (:require [cheshire.core :as cheshire]
             [clojure.tools.logging :as log]))
 
 (defn- json-body?
@@ -23,17 +24,16 @@
     (cond
       (not (valid-method? request))
       (handler request)
-      
+
       (not (contains? request :body))
       (handler request)
-      
+
       (not (json-body? request))
       (handler request)
-      
+
       :else
       (try+
-        (let [body-string (slurp (:body request))
-              body-map (json/read-json body-string)
+        (let [body-map (cheshire/decode-stream (reader (:body request)) true)
               new-req  (assoc request :body body-map)]
           (handler new-req))
         (catch error? err
@@ -42,4 +42,3 @@
         (catch java.lang.Exception e
           (log/error (format-exception (:throwable &throw-context)))
           (err-resp "parse-json" (unchecked &throw-context)))))))
-
