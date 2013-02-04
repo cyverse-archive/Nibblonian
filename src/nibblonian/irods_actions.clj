@@ -613,8 +613,11 @@
         (log/debug "dec-user-shared-with - after set-metadata")))))
 
 (defn shared?
-  [cm share-with fpath]
-  (:read (permissions cm share-with fpath)))
+  ([cm share-with fpath]
+     (:read (permissions cm share-with fpath)))
+  ([cm share-with fpath curr-perms desired-perms]
+     (and (:read (permissions cm share-with fpath))
+          (= curr-perms desired-perms))))
 
 (defn share
   [user share-withs fpaths perms]
@@ -626,7 +629,8 @@
     
     (doseq [share-with share-withs]
       (doseq [fpath fpaths]
-        (let [read-perm  (:read perms)
+        (let [curr-path-perms (permissions cm share-with fpath)
+              read-perm  (:read perms)
               write-perm (:write perms)
               own-perm   (:own perms)
               base-dir   (ft/path-join "/" (irods-zone))]
@@ -635,6 +639,7 @@
           ;;files and directories that are shared will be
           ;;orphaned in the UI.
           (loop [dir-path (ft/dirname fpath)]
+            (log/warn "DIRPATH: " dir-path)
             (when-not (= dir-path base-dir)
               (let [curr-perms (permissions cm share-with dir-path)
                     curr-read  (:read curr-perms)
@@ -643,7 +648,7 @@
                 (set-permissions cm share-with dir-path true curr-write curr-own)
                 (recur (ft/dirname dir-path)))))
 
-          (when-not (shared? cm share-with fpath)
+          (when-not (shared? cm share-with fpath curr-path-perms perms)
             ;;Mark the user's home directory as having a file shared with the user.
             (add-user-shared-with cm (ft/path-join base-dir "home" user) share-with)
 
