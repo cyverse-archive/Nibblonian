@@ -281,7 +281,7 @@
       (validators/user-owns-paths cm user sources)
       (validators/path-writeable cm user dest)
       (validators/no-paths-exist cm dest-paths)
-      (move-all cm sources dest)
+      (move-all cm sources dest :user user :admin-users (irods-admins))
       {:sources sources :dest dest})))
 
 (defn rename-path
@@ -293,7 +293,7 @@
     (validators/ownage? cm user source)
     (validators/path-not-exists cm dest)
 
-    (let [result (move cm source dest)]
+    (let [result (move cm source dest :user user :admin-users (irods-admins))]
       (when-not (nil? result)
         (throw+ {:error_code ERR_INCOMPLETE_RENAME
                  :paths result
@@ -840,7 +840,7 @@
 (defn move-to-trash
   [cm p user]
   (let [trash-path (randomized-trash-path user p)]
-    (move cm p trash-path)
+    (move cm p trash-path :user user :admin-users (irods-admins))
     (set-metadata cm trash-path "ipc-trash-origin" p IPCSYSTEM)))
 
 (defn delete-paths
@@ -927,7 +927,7 @@
           (validators/path-not-exists cm fully-restored)
 
           (log/warn fully-restored " does not exist. That's good.")
-          (move cm path fully-restored)
+          (move cm path fully-restored :user user :admin-users (irods-admins))
           (log/warn "Done moving " path " to " fully-restored)
 
           (reset! retval (assoc @retval path fully-restored))))
