@@ -876,6 +876,10 @@
     (:value (first (get-attribute cm p "ipc-trash-origin")))
     (ft/path-join (user-home-dir user) (ft/basename p))))
 
+(defn restore-to-homedir?
+  [cm p]
+  (not (attribute? cm p "ipc-trash-origin")))
+
 (defn restoration-path
   [cm user path]
   (let [user-home   (user-home-dir user)
@@ -911,7 +915,8 @@
 
     (let [retval (atom (hash-map))]
       (doseq [path paths]
-        (let [fully-restored (restoration-path cm user path)]
+        (let [fully-restored      (restoration-path cm user path)
+              restored-to-homedir (restore-to-homedir? cm path)]
           (log/warn "Restoring " path " to " fully-restored)
 
           (validators/path-not-exists cm fully-restored)
@@ -930,7 +935,9 @@
           (move cm path fully-restored :user user :admin-users (irods-admins))
           (log/warn "Done moving " path " to " fully-restored)
 
-          (reset! retval (assoc @retval path fully-restored))))
+          (reset! retval
+                  (assoc @retval path {:restored-path fully-restored
+                                       :partial-restore restored-to-homedir}))))
       {:restored @retval})))
 
 (defn copy-path
