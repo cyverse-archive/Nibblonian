@@ -95,7 +95,7 @@ __Response Body__:
 
 __Curl Command__:
 
-    curl -H "Content-Type:application/json" -d '{"paths":{"/path/to/file":["ticket-id1","ticket-id2","ticket-id3"],"/path/to/dir":["ticket-id4","ticket-id5"]}}' http://127.0.0.1:3000/list-tickets?user=<username>
+    curl -H "Content-Type:application/json" -d '{"paths":["/path/to/file","/path/to/dir"]}' http://127.0.0.1:3000/list-tickets?user=<username>
 
 
 Deleting Tickets

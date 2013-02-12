@@ -45,16 +45,16 @@
     retval
     {:status 200
      :body
-     (cond     
+     (cond
        (map? retval)
        (-> retval
          (assoc :status "success"
                 :action action)
          json/json-str)
-       
+
        (not (string? retval))
      (.toString retval)
-     
+
      :else retval)}))
 
 (defn format-exception
@@ -77,8 +77,10 @@
   (try+
     (success-resp action (apply func args))
     (catch error? err
+      (.printStackTrace err)
       (log/error (str err "\n" (trace-element-str (:stack-trace &throw-context))))
       (err-resp action err))
     (catch java.lang.Exception e
+      (.printStackTrace e)
       (log/error e)
       (err-resp action (unchecked &throw-context)))))
