@@ -5,6 +5,7 @@
         nibblonian.controllers
         nibblonian.config
         nibblonian.error-codes
+        lamina.core
         [ring.middleware
          params
          keyword-params
@@ -171,5 +172,5 @@
     (if (:config opts)
       (local-init (:config opts))
       (init))
-  
+    
     (jetty/run-jetty app {:port (listen-port)})))

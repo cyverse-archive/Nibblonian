@@ -7,7 +7,7 @@
                  [org.clojure/data.codec "0.1.0"]
                  [org.iplantc/clojure-commons "1.3.1-SNAPSHOT"]
                  [org.iplantc/clj-jargon "0.2.3-SNAPSHOT"]
-                 [clj-http "0.3.2"]
+                 [clj-http "0.6.4"]
                  [com.cemerick/url "0.0.7"]
                  [compojure "1.0.1"]
                  [org.clojure/tools.cli "0.2.1"]
@@ -16,7 +16,8 @@
                  [slingshot "0.10.1"]
                  [log4j/log4j "1.2.16"]
                  [swank-clojure "1.3.1"]
-                 [org.apache.tika/tika-core "1.1"]]
+                 [org.apache.tika/tika-core "1.1"]
+                 [lamina "0.5.0-beta9"]]
   :ring {:init nibblonian.controllers/init,
          :handler nibblonian.core/app}
   :profiles {:dev

