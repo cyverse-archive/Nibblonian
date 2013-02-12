@@ -7,7 +7,6 @@
                  [org.clojure/data.codec "0.1.0"]
                  [org.iplantc/clojure-commons "1.3.1-SNAPSHOT"]
                  [org.iplantc/clj-jargon "0.2.3-SNAPSHOT"]
-                 [clj-http "0.6.4"]
                  [com.cemerick/url "0.0.7"]
                  [compojure "1.0.1"]
                  [org.clojure/tools.cli "0.2.1"]
