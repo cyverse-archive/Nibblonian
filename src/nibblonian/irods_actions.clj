@@ -590,19 +590,6 @@
      (and (:read (permissions cm share-with fpath))
           (= curr-perms desired-perms))))
 
-(defn- process-parent-dirs
-  [f process? path]
-  (loop [dir-path (ft/dirname path)]
-    (when (process? dir-path)
-      (log/warn "processing directory:" dir-path)
-      (f dir-path)
-      (recur (ft/dirname dir-path)))))
-
-(defn- set-readable
-  [cm username readable? path]
-  (let [{curr-write :write curr-own :own} (permissions cm username path)]
-    (set-permissions cm username path readable? curr-write curr-own)))
-
 (defn- share-path
   "Shares a path with a user. This consists of the following steps:
 
@@ -641,10 +628,6 @@
     {:user        share-withs
      :path        fpaths
      :permissions perms}))
-
-(defn contains-accessible-obj?
-  [cm user dpath]
-  (some #(is-readable? cm user %1) (list-paths cm dpath)))
 
 (defn contains-subdir?
   [cm dpath]
