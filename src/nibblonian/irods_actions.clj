@@ -290,7 +290,7 @@
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     (validators/path-exists cm source)
-    (validators/ownage? cm user source)
+    (validators/user-owns-path cm user source)
     (validators/path-not-exists cm dest)
 
     (let [result (move cm source dest :user user :admin-users (irods-admins))]
