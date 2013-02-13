@@ -586,9 +586,16 @@
 (defn shared?
   ([cm share-with fpath]
      (:read (permissions cm share-with fpath)))
-  ([cm share-with fpath curr-perms desired-perms]
-     (and (:read (permissions cm share-with fpath))
-          (= curr-perms desired-perms))))
+  ([cm share-with fpath desired-perms]
+     (let [curr-perms (permissions cm share-with fpath)]
+       (and (:read curr-perms) (= curr-perms desired-perms)))))
+
+(defn- skip-share
+  [user path reason]
+  {:user    user
+   :path    path
+   :reason  reason
+   :skipped true})
 
 (defn- share-path
   "Shares a path with a user. This consists of the following steps:
@@ -602,13 +609,20 @@
        3. The permissions are set on the item being shared. This is done recursively in case the
           item being shared is a directory."
   [cm share-with {read-perm :read write-perm :write own-perm :own :as perms} fpath]
-  (let [curr-path-perms (permissions cm share-with fpath)
-        base-dir        (ft/path-join "/" (irods-zone))]
-    (process-parent-dirs (partial set-readable cm share-with true) #(not= base-dir %) fpath)
-    (when-not (shared? cm share-with fpath curr-path-perms perms)
-      (when (is-dir? cm fpath)
-        (.setAccessPermissionInherit (:collectionAO cm) (:zone cm) fpath true))
-      (set-permissions cm share-with fpath read-perm write-perm own-perm true))))
+  (let [base-dir (ft/rm-last-slash (:home cm))]
+    (process-parent-dirs (partial set-readable cm share-with true) #(not= base-dir %) fpath))
+  (when (is-dir? cm fpath)
+    (.setAccessPermissionInherit (:collectionAO cm) (:zone cm) fpath true))
+  (set-permissions cm share-with fpath read-perm write-perm own-perm true)
+  {:user share-with :path fpath})
+
+(defn- share-paths
+  [cm user share-withs fpaths perms]
+  (for [share-with share-withs
+        fpath      fpaths]
+    (cond (= user share-with)                 (skip-share share-with fpath :share-with-self)
+          (shared? cm share-with fpath perms) (skip-share share-with fpath :already-shared)
+          :else                               (share-path cm share-with perms fpath))))
 
 (defn share
   [user share-withs fpaths perms]
@@ -618,16 +632,15 @@
     (validators/all-paths-exist cm fpaths)
     (validators/user-owns-paths cm user fpaths)
 
-    (doseq [share-with share-withs
-            fpath      fpaths]
-      (share-path cm share-with perms fpath))
-
-    (let [home-dir (ft/path-join "/" (irods-zone) "home" user)]
-      (dorun (map (partial add-user-shared-with cm home-dir) share-withs)))
-
-    {:user        share-withs
-     :path        fpaths
-     :permissions perms}))
+    (let [keyfn      #(if (:skipped %) :skipped :succeeded)
+          share-recs (group-by keyfn (share-paths cm user share-withs fpaths perms))
+          sharees    (map :user (:succeeded share-recs))
+          home-dir   (ft/path-join (:home cm) user)]
+      (dorun (map (partial add-user-shared-with cm (ft/path-join (:home cm) user)) sharees))
+      {:user        sharees
+       :path        fpaths
+       :skipped     (map #(dissoc % :skipped) (:skipped share-recs))
+       :permissions perms})))
 
 (defn contains-subdir?
   [cm dpath]
@@ -665,16 +678,23 @@
        3. Remove the user's read permissions for parent directories in which the user no longer has
           access to any other files or subdirectories."
   [cm user unshare-with fpath]
-  (let [base-dir    (ft/path-join "/" (irods-zone) "home")
-        parent-path (ft/dirname fpath)]
-    (when (shared? cm unshare-with fpath)
-      (remove-permissions cm unshare-with fpath)
-      (when (is-dir? cm fpath)
-        (unshare-dir cm user unshare-with fpath))
-      (process-parent-dirs (partial set-readable cm unshare-with false)
-                           #(and (not= base-dir %)
-                                 (not (contains-accessible-obj? cm unshare-with %)))
-                           fpath))))
+  (let [base-dir (ft/rm-last-slash (:home cm))]
+    (remove-permissions cm unshare-with fpath)
+    (when (is-dir? cm fpath)
+      (unshare-dir cm user unshare-with fpath))
+    (process-parent-dirs (partial set-readable cm unshare-with false)
+                         #(and (not= base-dir %)
+                               (not (contains-accessible-obj? cm unshare-with %)))
+                         fpath)
+    {:user unshare-with :path fpath}))
+
+(defn- unshare-paths
+  [cm user unshare-withs fpaths]
+  (for [unshare-with unshare-withs
+        fpath        fpaths]
+    (cond (= user unshare-with)           (skip-share unshare-with fpath :unshare-with-self)
+          (shared? cm unshare-with fpath) (unshare-path cm user unshare-with fpath)
+          :else                           (skip-share unshare-with fpath :not-shared))))
 
 (defn clean-up-unsharee-avus
   [cm fpath unshare-with]
@@ -697,15 +717,14 @@
     (log/debug "unshare - unshare-withs: " unshare-withs)
     (log/debug "unshare - fpaths: " fpaths)
 
-    (doseq [unshare-with unshare-withs
-            fpath        fpaths]
-      (unshare-path cm user unshare-with fpath))
-
-    (let [home-dir (ft/path-join "/" (irods-zone) "home" user)]
-      (dorun (map (partial clean-up-unsharee-avus cm home-dir) unshare-withs))))
-
-  {:user unshare-withs
-   :path fpaths})
+    (let [keyfn        #(if (:skipped %) :skipped :succeeded)
+          unshare-recs (group-by keyfn (unshare-paths cm user unshare-withs fpaths))
+          unsharees    (map :user (:succeeded unshare-recs))
+          home-dir     (ft/path-join (:home cm) user)]
+      (dorun (map (partial clean-up-unsharee-avus cm home-dir) unsharees))
+      {:user unsharees
+       :path fpaths
+       :skipped (map #(dissoc % :skipped) (:skipped unshare-recs))})))
 
 (defn list-of-homedirs-with-shared-files
   [cm user]
