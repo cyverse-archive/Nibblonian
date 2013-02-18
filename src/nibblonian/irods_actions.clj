@@ -186,7 +186,8 @@
        (when (and set-own? (not (owns? cm user root-path)))
          (set-permissions cm user root-path false false true))
 
-       (jargon/list-dir cm user root-path :include-subdirs false))))
+       (when-let [res (jargon/list-dir cm user root-path :include-subdirs false)]
+         (assoc res :label (id->label user (:id res)))))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
