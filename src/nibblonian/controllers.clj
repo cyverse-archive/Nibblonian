@@ -22,12 +22,12 @@
 (defn- dir-list
   ([user directory include-files]
      (dir-list user directory include-files false))
-  
+
   ([user directory include-files set-own?]
      (when (super-user? user)
        (throw+ {:error_code ERR_NOT_AUTHORIZED
                 :user user}))
-     
+
      (let [comm-dir   (community-data)
            user-dir   (utils/path-join (irods-home) user)
            public-dir (utils/path-join (irods-home) "public")
@@ -86,11 +86,11 @@
   (log/debug "do-directory")
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   ;;; If there's no path parameter, then it's a top-level
   ;;; request and the community listing should be included.
-  (cond 
-    (not (query-param? request "path")) 
+  (cond
+    (not (query-param? request "path"))
     (let [user       (query-param request "user")
           inc-files  (include-files? request)
           comm-f     (future (gen-comm-data user inc-files))
@@ -101,9 +101,9 @@
     (= (utils/add-trailing-slash (query-param request "path")) (irods-home))
     (let [user (query-param request "user")]
       (irods-actions/shared-root-listing user (irods-home) (include-files? request) []))
-    
+
     :else
-    ;;; There's a path parameter, so simply list the directory.  
+    ;;; There's a path parameter, so simply list the directory.
     (let [user      (query-param request "user")
           path      (query-param request "path")
           inc-files (include-files? request)]
@@ -114,19 +114,21 @@
 (defn do-root-listing
   [request]
   (log/debug "do-root-listing")
-  
+
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (let [user  (query-param request "user")
         uhome (utils/path-join (irods-home) user)
         user-root-list (partial irods-actions/root-listing user)
         user-trash-dir (irods-actions/user-trash-dir user)]
     {:roots
-     [(user-root-list uhome)
-      (user-root-list (community-data))
-      (user-root-list (irods-home))
-      (user-root-list user-trash-dir true)]}))
+     (remove
+      nil?
+      [(user-root-list uhome)
+       (user-root-list (community-data))
+       (user-root-list (irods-home))
+       (user-root-list user-trash-dir true)])}))
 
 (defn do-rename
   "Performs a rename.
@@ -141,21 +143,21 @@
      source - JSON field from the body telling which file to rename."
   [request]
   (log/debug "do-rename")
-  
+
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (when-not (valid-body? request {:source string? :dest string?})
-    (bad-body request {:source string? :dest string?})) 
-  
+    (bad-body request {:source string? :dest string?}))
+
   (let [body-json (:body request)
         user      (query-param request "user")
         dest      (:dest body-json)
         source    (:source body-json)]
     (log/info (str "Body: " (json/json-str body-json)))
-    
+
     (when (super-user? user)
-      (throw+ {:error_code ERR_NOT_AUTHORIZED           
+      (throw+ {:error_code ERR_NOT_AUTHORIZED
                :user user}))
     (irods-actions/rename-path user source dest)))
 
@@ -171,13 +173,13 @@
      paths - JSON field containing a list of paths that should be deleted."
   [request]
   (log/debug "do-delete")
-  
+
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (when-not (valid-body? request {:paths sequential?})
-    (bad-body request {:paths sequential?})) 
-  
+    (bad-body request {:paths sequential?}))
+
   (let [body-json (:body request)
         user      (query-param request "user")
         paths     (:paths body-json)]
@@ -204,20 +206,20 @@
 
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
-  (let [check-map {:sources sequential? :dest string?}] 
+
+  (let [check-map {:sources sequential? :dest string?}]
     (when-not (valid-body? request check-map)
       (bad-body request check-map)))
-  
+
   (let [body-json (:body request)
         user      (query-param request "user")
         sources   (:sources body-json)
         dest      (:dest body-json)]
     (log/info (str "Body: " (json/json-str body-json)))
-    
+
     (when (super-user? user)
       (throw+ {:error_code ERR_NOT_AUTHORIZED :user user}))
-    
+
     (irods-actions/move-paths user sources dest)))
 
 (defn do-create
@@ -230,14 +232,14 @@
      user - Query string value containing a username.
      path - JSON field containing the path to create."
   [request]
-  (log/debug "do-create")  
+  (log/debug "do-create")
 
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (when-not (valid-body? request {:path string?})
-    (bad-body request {:path string?})) 
-  
+    (bad-body request {:path string?}))
+
   (let [body-json (:body request)
         user      (query-param request "user")
         path      (:path body-json)]
@@ -252,12 +254,12 @@
   [request]
   (log/debug "do-metadata-get")
 
-  (when-not (query-param? request "user") 
+  (when-not (query-param? request "user")
     (bad-query "user"))
-  
-  (when-not (query-param? request "path") 
+
+  (when-not (query-param? request "path")
     (bad-query "user"))
-  
+
   (let [user (query-param request "user")
         path (query-param request "path")]
     (irods-actions/metadata-get user path)))
@@ -266,16 +268,16 @@
   [request]
   (log/debug "do-metadata-set")
 
-  (when-not (query-param? request "user") 
+  (when-not (query-param? request "user")
     (bad-query "user"))
-  
-  (when-not (query-param? request "path") 
+
+  (when-not (query-param? request "path")
     (bad-query "path"))
-  
-  (let [check-map {:attr string? :value string? :unit string?}] 
+
+  (let [check-map {:attr string? :value string? :unit string?}]
     (when-not (valid-body? request check-map)
       (bad-body request check-map)))
-  
+
   (let [user (query-param request "user")
         path (query-param request "path")
         body (:body request)]
@@ -291,14 +293,14 @@
 (defn do-share
   [request]
   (log/debug "do-share")
-  
+
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (let [check-map {:paths sequential? :users sequential? :permissions map?}]
     (when-not (valid-body? request check-map)
       (bad-body request check-map)))
-  
+
   (let [user        (fix-username (query-param request "user"))
         share-withs (map fix-username (get-in request [:body :users]))
         fpaths      (get-in request [:body :paths])
@@ -306,15 +308,15 @@
     (when-not (contains? perms :read)
       (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
                :field "read"}))
-    
+
     (when-not (contains? perms :write)
       (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
                :field "write"}))
-    
+
     (when-not (contains? perms :own)
       (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
                :field "write"}))
-    
+
     (irods-actions/share user share-withs fpaths perms)))
 
 (defn do-unshare
@@ -324,8 +326,8 @@
   (when-not (query-param? request "user")
     (bad-query "user"))
 
-  (let [check-map {:paths sequential? 
-                   :users sequential?}] 
+  (let [check-map {:paths sequential?
+                   :users sequential?}]
     (when-not (valid-body? request check-map)
       (bad-body request check-map)))
 
@@ -345,19 +347,19 @@
 (defn do-metadata-batch-set
   [request]
   (log/debug "do-metadata-set")
-  
+
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (when-not (query-param? request "path")
     (bad-query "path"))
-  
+
   (when-not (valid-body? request {:add sequential?})
     (bad-body request {:add sequential?}))
-  
+
   (when-not (valid-body? request {:delete sequential?})
     (bad-body request {:delete sequential?}))
-  
+
   (let [user (query-param request "user")
         path (query-param request "path")
         body (:body request)
@@ -366,7 +368,7 @@
     (when (pos? (count adds))
       (if (not (every? true? (check-adds adds)))
         (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "add"})))
-    
+
     (when (pos? (count dels))
       (if (not (every? true? (check-dels dels)))
         (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "add"})))
@@ -377,15 +379,15 @@
   [request]
   (log/debug "do-metadata-delete")
 
-  (when-not (query-param? request "user") 
+  (when-not (query-param? request "user")
     (bad-query "user"))
-  
-  (when-not (query-param? request "path") 
+
+  (when-not (query-param? request "path")
     (bad-query "path"))
-  
-  (when-not (query-param? request "attr") 
+
+  (when-not (query-param? request "attr")
     (bad-query "attr"))
-  
+
   (let [user (query-param request "user")
         path (query-param request "path")
         attr (query-param request "attr")]
@@ -402,10 +404,10 @@
 
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (when-not (query-param? request "path")
     (bad-query "path"))
-  
+
   (let [user (query-param request "user")
         path (query-param request "path")]
     (when (super-user? user)
@@ -420,10 +422,10 @@
 
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (when-not (valid-body? request {:paths vector?})
     (bad-body request {:paths vector?}))
-  
+
   (let [paths (:paths (:body request))
         user  (query-param request "user")]
     {:paths (apply conj {} (map #(hash-map %1 (irods-actions/path-exists? user %1)) paths))}))
@@ -449,24 +451,24 @@
   [request]
   (log/debug "do-manifest")
 
-  (when-not (query-param? request "user") 
+  (when-not (query-param? request "user")
     (bad-query "user"))
-  
-  (when-not (query-param? request "path") 
+
+  (when-not (query-param? request "path")
     (bad-query "path"))
-  
+
   (let [user (query-param request "user")
         path (query-param request "path")]
     (irods-actions/manifest user path (data-threshold))))
 
 (defn do-download
   [request]
-  (when-not (query-param? request "user") 
+  (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (when-not (valid-body? request {:paths sequential?})
     (bad-body request {:paths sequential?}))
-  
+
   (let [user      (query-param request "user")
         filepaths (:paths (:body request))]
     (irods-actions/download user filepaths)))
@@ -475,7 +477,7 @@
   [request]
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (let [user (query-param request "user")]
     (irods-actions/upload user)))
 
@@ -486,19 +488,19 @@
      user - Query string field containing a username.
      path - Query string field containing the path to download."
   [request]
-  (log/debug "do-download")  
+  (log/debug "do-download")
 
-  (when-not (query-param? request "user") 
+  (when-not (query-param? request "user")
     (bad-query "user"))
-  
-  (when-not (query-param? request "path") 
+
+  (when-not (query-param? request "path")
     (bad-query "path"))
-  
+
   (let [user (query-param request "user")
         path (query-param request "path")]
     (log/info (str "User for download: " user))
     (log/info (str "Path to download: " path))
-    
+
     (when (super-user? user)
       (throw+ {:error_code ERR_NOT_AUTHORIZED :user user}))
 
@@ -510,13 +512,13 @@
        {:status 200 :body (irods-actions/download-file user path)}
        "Content-Disposition"
        (str "attachment; filename=\"" (utils/basename path) "\""))
-      
+
       (not (attachment? request))
       (rsp-utils/header
        {:status 200 :body (irods-actions/download-file user path)}
        "Content-Disposition"
        (str "filename=\"" (utils/basename path) "\""))
-      
+
       :else
       (rsp-utils/header
        {:status 200 :body (irods-actions/download-file user path)}
@@ -591,20 +593,20 @@
    Request parameters:
      user - Query string field contain the iRODS account name for the user of
        interest."
-  (log/debug "do-groups") 
-  (when-not (query-param? request "user") 
+  (log/debug "do-groups")
+  (when-not (query-param? request "user")
     (bad-query "user"))
   {:groups (irods-actions/list-user-groups (query-param request "user"))})
-  
+
 (defn do-quota
   "Handles returning a list of objects representing
    all of the quotas that a user has."
   [request]
   (log/debug "do-quota")
-  
+
   (when-not (query-param? request "user")
     (bad-query "user"))
-  
+
   (let [user (query-param request "user")]
     {:quotas (irods-actions/get-quota user)}))
 
@@ -644,7 +646,7 @@
 
   (when-not (check-tickets (:tickets (:body request)))
     (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "tickets"}))
-  
+
   (let [user      (query-param request "user")
         pub-param (query-param request "public")
         public    (if (and pub-param (= pub-param "1")) true false)]

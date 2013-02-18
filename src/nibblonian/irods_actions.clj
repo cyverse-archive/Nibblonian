@@ -9,7 +9,7 @@
             [clojure.string :as string]
             [nibblonian.validators :as validators]
             [nibblonian.riak :as riak])
-  (:use [clj-jargon.jargon :exclude [init]]
+  (:use [clj-jargon.jargon :exclude [init list-dir] :as jargon]
         clojure-commons.error-codes
         [nibblonian.config :exclude [init]]
         [slingshot.slingshot :only [try+ throw+]])
@@ -107,34 +107,6 @@
      :date-modified (date-mod-from-stat stat)
      :file-size     (size-from-stat stat))))
 
-(defn file-map-entry
-  [cm user list-entry]
-  (let [abspath (.getAbsolutePath list-entry)
-        stat    (.initializeObjStatForFile list-entry)]
-    (hash-map
-      :id            abspath
-      :label         (ft/basename abspath)
-      :permissions   (dataobject-perm-map cm user abspath)
-      :date-created  (date-created-from-stat stat)
-      :date-modified (date-mod-from-stat stat)
-      :file-size     (size-from-stat stat))))
-
-(defn list-dirs
-  [cm user list-entries dirpath filter-files]
-  (filterv
-    #(and (get-in %1 [:permissions :read])
-          (not (contains? filter-files (:id %1)))
-          (not (contains? filter-files (:label %1))))
-    (map #(dir-map-entry cm user %1) list-entries)))
-
-(defn list-files
-  [cm user list-entries dirpath filter-files]
-  (filterv
-    #(and (get-in %1 [:permissions :read])
-          (not (contains? filter-files (:id %1)))
-          (not (contains? filter-files (:label %1))))
-    (map #(file-map-entry cm user %1) list-entries)))
-
 (defn list-in-dir
   [cm fixed-path]
   (let [ffilter (proxy [java.io.FileFilter] [] (accept [stuff] true))]
@@ -142,12 +114,6 @@
       (:fileSystemAO cm)
       (file cm fixed-path)
       ffilter)))
-
-(defn partition-files-folders
-  [cm fixed-path]
-  (group-by
-    #(.isDirectory %1)
-    (list-in-dir cm fixed-path)))
 
 (defn string-contains?
   [container-str str-to-check]
@@ -157,35 +123,18 @@
   [map-to-check]
   (not (string-contains? (filter-chars) (:id map-to-check))))
 
-(defn file-listing
-  [cm user file-entries fixed-path filter-files]
-  (filterv valid-file-map? (list-files cm user file-entries fixed-path filter-files)))
-
-(defn dir-listing
-  [cm user file-entries fixed-path filter-files]
-  (filterv valid-file-map? (list-dirs cm user file-entries fixed-path filter-files)))
-
 (defn gen-listing
   [cm user path filter-files include-files]
-  (let [fixed-path   (ft/rm-last-slash path)
-        ff           (set filter-files)
-        parted-files (partition-files-folders cm fixed-path)
-        dir-entries  (or (get parted-files true) (vector))
-        file-entries (or (get parted-files false) (vector))
-        dirs         (dir-listing cm user dir-entries fixed-path ff)
-        add-files    #(if include-files
-                        (assoc %1 :files (file-listing cm user file-entries fixed-path ff))
-                        %1)]
-    (-> {}
-        (assoc
-            :id            path
-            :label         (id->label user path)
-            :hasSubDirs    true
-            :date-created  (created-date cm path)
-            :date-modified (lastmod-date cm path)
-            :permissions   (collection-perm-map cm user path)
-            :folders       dirs)
-        add-files)))
+  (let [fixed-path     (ft/rm-last-slash path)
+        ff             (set filter-files)
+        listing        (jargon/list-dir cm user path :include-files include-files)
+        filter-listing (fn [l] (remove #(or (ff (:id %)) (not (valid-file-map? %))) l))]
+    (if include-files
+      (assoc listing
+        :folders (filter-listing (:folders listing))
+        :files   (filter-listing (:files listing)))
+      (assoc listing
+        :folders (filter-listing (:folders listing))))))
 
 (defn list-dir
   "A non-recursive listing of a directory. Contains entries for files.
@@ -225,21 +174,19 @@
      (root-listing user root-path false))
 
   ([user root-path set-own?]
-    (with-jargon (jargon-config) [cm]
-      (validators/user-exists cm user)
+     (with-jargon (jargon-config) [cm]
+       (validators/user-exists cm user)
 
-      (when (and (= root-path (user-trash-dir user)) (not (exists? cm root-path)))
-        (mkdir cm root-path)
-        (set-permissions cm user root-path false false true))
+       (when (and (= root-path (user-trash-dir user)) (not (exists? cm root-path)))
+         (mkdir cm root-path)
+         (set-permissions cm user root-path false false true))
 
-      (validators/path-exists cm root-path)
+       (validators/path-exists cm root-path)
 
-      (when (and set-own? (not (owns? cm user root-path)))
-        (set-permissions cm user root-path false false true))
+       (when (and set-own? (not (owns? cm user root-path)))
+         (set-permissions cm user root-path false false true))
 
-      (validators/path-readable cm user root-path)
-
-      (dir-map-entry cm user (file cm root-path)))))
+       (jargon/list-dir cm user root-path :include-subdirs false))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
