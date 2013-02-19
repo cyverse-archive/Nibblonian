@@ -54,6 +54,9 @@
 (defn irods-zone [] (get @props "nibblonian.irods.zone"))
 (defn irods-resc [] (get @props "nibblonian.irods.defaultResource"))
 
+(def irods-admins
+  (memoize #(set (string/split (get @props "nibblonian.irods.admin-users") #", *"))))
+
 (defn prov-url [] (get @props "nibblonian.prov-proxy-url"))
 (defn service-name [] (or (get @props "nibblonian.service-name")))
 (defn riak-base-url [] (get @props "nibblonian.riak.base-url"))
@@ -98,7 +101,7 @@
         (log/warn
          "THIS APPLICATION CANNOT RUN ON THIS MACHINE. SO SAYETH ZOOKEEPER.")
         (log/warn "THIS APPLICATION WILL NOT EXECUTE CORRECTLY."))
-      (reset! props (cl/properties "nibblonian")))) 
+      (reset! props (cl/properties "nibblonian"))))
   (reset! jg-cfg (jargon-init))
   (log-config @props))
 

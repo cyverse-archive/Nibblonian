@@ -45,16 +45,16 @@
     retval
     {:status 200
      :body
-     (cond     
+     (cond
        (map? retval)
        (-> retval
          (assoc :status "success"
                 :action action)
          json/json-str)
-       
+
        (not (string? retval))
      (.toString retval)
-     
+
      :else retval)}))
 
 (defn format-exception
