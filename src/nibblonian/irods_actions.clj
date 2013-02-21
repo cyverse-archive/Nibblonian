@@ -70,19 +70,18 @@
 
 (defn sharing? [abs] (= (irods-home) abs))
 (defn community? [abs] (= (community-data) abs))
-(defn trash-base-dir [] (ft/path-join "/" (irods-zone) "trash" "home" (irods-user)))
-(defn user-trash-dir [user] (ft/path-join (trash-base-dir) user))
+(defn user-trash-dir [cm user] (trash-base-dir cm user))
 
 (defn user-trash-dir?
-  [user path-to-check]
+  [cm user path-to-check]
   (= (ft/rm-last-slash path-to-check)
-     (ft/rm-last-slash (user-trash-dir user))))
+     (ft/rm-last-slash (user-trash-dir cm user))))
 
 (defn id->label
   "Generates a label given a listing ID (read as absolute path)."
-  [user id]
+  [cm user id]
   (cond
-   (user-trash-dir? user id)
+   (user-trash-dir? cm user id)
    "Trash"
 
    (sharing? (ft/add-trailing-slash id))
@@ -100,7 +99,7 @@
         stat    (.initializeObjStatForFile list-entry)]
     (hash-map
      :id            abspath
-     :label         (id->label user abspath)
+     :label         (id->label cm user abspath)
      :permissions   (collection-perm-map cm user abspath)
      :hasSubDirs    true
      :date-created  (date-created-from-stat stat)
@@ -177,7 +176,7 @@
      (with-jargon (jargon-config) [cm]
        (validators/user-exists cm user)
 
-       (when (and (= root-path (user-trash-dir user)) (not (exists? cm root-path)))
+       (when (and (= root-path (user-trash-dir cm user)) (not (exists? cm root-path)))
          (mkdir cm root-path)
          (set-permissions cm user root-path false false true))
 
@@ -187,7 +186,7 @@
          (set-permissions cm user root-path false false true))
 
        (when-let [res (jargon/list-dir cm user root-path :include-subdirs false)]
-         (assoc res :label (id->label user (:id res)))))))
+         (assoc res :label (id->label cm user (:id res)))))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
@@ -557,8 +556,8 @@
        3. The permissions are set on the item being shared. This is done recursively in case the
           item being shared is a directory."
   [cm share-with {read-perm :read write-perm :write own-perm :own :as perms} fpath]
-  (let [base-dir (ft/rm-last-slash (:home cm))]
-    (process-parent-dirs (partial set-readable cm share-with true) #(not= base-dir %) fpath))
+  (let [base-dirs #{(ft/rm-last-slash (:home cm)) (trash-base-dir cm)}]
+    (process-parent-dirs (partial set-readable cm share-with true) #(not (base-dirs %)) fpath))
   (when (is-dir? cm fpath)
     (.setAccessPermissionInherit (:collectionAO cm) (:zone cm) fpath true))
   (set-permissions cm share-with fpath read-perm write-perm own-perm true)
@@ -626,12 +625,12 @@
        3. Remove the user's read permissions for parent directories in which the user no longer has
           access to any other files or subdirectories."
   [cm user unshare-with fpath]
-  (let [base-dir (ft/rm-last-slash (:home cm))]
+  (let [base-dirs #{(ft/rm-last-slash (:home cm)) (trash-base-dir cm)}]
     (remove-permissions cm unshare-with fpath)
     (when (is-dir? cm fpath)
       (unshare-dir cm user unshare-with fpath))
     (process-parent-dirs (partial set-readable cm unshare-with false)
-                         #(and (not= base-dir %)
+                         #(and (not (base-dirs %))
                                (not (contains-accessible-obj? cm unshare-with %)))
                          fpath)
     {:user unshare-with :path fpath}))
@@ -680,7 +679,7 @@
    #(let [stat (.getObjStat (:fileSystemAO cm) %1)]
       (hash-map
        :id            %1
-       :label         (id->label user %1)
+       :label         (id->label cm user %1)
        :hasSubDirs    true
        :date-created  (date-created-from-stat stat)
        :date-modified (date-mod-from-stat stat)
@@ -696,7 +695,7 @@
   (let [dirs (list-of-homedirs-with-shared-files cm user)]
     (hash-map
      :id            path
-     :label         (id->label user path)
+     :label         (id->label cm user path)
      :hasSubDirs    true
      :date-created  (created-date cm path)
      :date-modified (lastmod-date cm path)
@@ -738,7 +737,7 @@
   [user]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
-    {:trash (user-trash-dir user)}))
+    {:trash (user-trash-dir cm user)}))
 
 (def alphanums (concat (range 48 58) (range 65 91) (range 97 123)))
 
@@ -747,33 +746,14 @@
   (apply str (take length (repeatedly #(char (rand-nth alphanums))))))
 
 (defn randomized-trash-path
-  [user path-to-inc]
+  [cm user path-to-inc]
   (ft/path-join
-   (user-trash-dir user)
+   (user-trash-dir cm user)
    (str (ft/basename path-to-inc) "." (rand-str 7))))
-
-#_(defn increment-path
-  [user path-to-inc attempts]
-  (ft/path-join
-   (user-trash-dir user)
-   (str (ft/basename path-to-inc) "." attempts)))
-
-#_(defn incremented-trash-path
-  [cm user p]
-  (loop [attempts 0]
-    (if (exists? cm (increment-path user p attempts))
-      (recur (inc attempts))
-      (randomized-increment-path user p attempts))))
-
-#_(defn generated-trash-path
-  [cm user p]
-  (let [file-basename (ft/basename p)
-        user-trash    (user-trash-dir user)]
-    (randomized-trash-path cm user p)))
 
 (defn move-to-trash
   [cm p user]
-  (let [trash-path (randomized-trash-path user p)]
+  (let [trash-path (randomized-trash-path cm user p)]
     (move cm p trash-path :user user :admin-users (irods-admins))
     (set-metadata cm trash-path "ipc-trash-origin" p IPCSYSTEM)))
 
@@ -798,7 +778,7 @@
                  :paths (filterv home-matcher paths)}))
 
       (doseq [p paths]
-        (if-not (.startsWith p (user-trash-dir user))
+        (if-not (.startsWith p (user-trash-dir cm user))
           (move-to-trash cm p user)
           (delete cm p)))
 
@@ -905,7 +885,7 @@
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
 
-    (let [trash-dir  (user-trash-dir user)
+    (let [trash-dir  (user-trash-dir cm user)
           trash-list (mapv #(.getAbsolutePath %) (list-in-dir cm (ft/rm-last-slash trash-dir)))]
       (doseq [trash-path trash-list]
         (delete cm trash-path))
