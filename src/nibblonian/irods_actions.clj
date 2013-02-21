@@ -70,12 +70,20 @@
 
 (defn sharing? [abs] (= (irods-home) abs))
 (defn community? [abs] (= (community-data) abs))
-(defn user-trash-dir [cm user] (trash-base-dir cm user))
+(defn user-trash-dir
+  ([user]
+     (with-jargon (jargon-config) [cm]
+       (user-trash-dir cm user)))
+  ([cm user]
+     (trash-base-dir cm user)))
 
 (defn user-trash-dir?
-  [cm user path-to-check]
-  (= (ft/rm-last-slash path-to-check)
-     (ft/rm-last-slash (user-trash-dir cm user))))
+  ([user path-to-check]
+     (with-jargon (jargon-config) [cm]
+       (user-trash-dir? cm user path-to-check)))
+  ([cm user path-to-check]
+     (= (ft/rm-last-slash path-to-check)
+        (ft/rm-last-slash (user-trash-dir cm user)))))
 
 (defn id->label
   "Generates a label given a listing ID (read as absolute path)."
