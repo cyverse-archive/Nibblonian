@@ -8,7 +8,8 @@ Error codes: ERR_EXISTS, ERR_DOES_NOT_EXIST, ERR_NOT_A_USER, ERR_NOT_WRITEABLE
 Sample Request JSON:
 
     {
-        "paths" : ["<absolute path to trashed file or dir"] 
+        "paths" : ["/iplant/trash/home/proxy-user/johnworth/foo.fq",
+                   "/iplant/trash/home/proxy-user/johnworth/foo1.fq"]
     }
 
 Curl Command:
