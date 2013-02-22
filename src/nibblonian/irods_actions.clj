@@ -135,7 +135,9 @@
   (let [fixed-path     (ft/rm-last-slash path)
         ff             (set filter-files)
         listing        (jargon/list-dir cm user path :include-files include-files)
-        filter-listing (fn [l] (remove #(or (ff (:id %)) (not (valid-file-map? %))) l))]
+        filter-listing (fn [l] (remove #(or (ff (:id %))
+                                            (ff (:label %))
+                                            (not (valid-file-map? %))) l))]
     (if include-files
       (assoc listing
         :folders (filter-listing (:folders listing))
