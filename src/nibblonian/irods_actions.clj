@@ -126,9 +126,12 @@
   [container-str str-to-check]
   (pos? (count (set/intersection (set container-str) (set str-to-check)))))
 
-(defn valid-file-map?
-  [map-to-check]
-  (not (string-contains? (filter-chars) (:id map-to-check))))
+(defn good-string?
+  [str-to-check]
+  (log/warn "filter-chars: " (filter-chars))
+  (not (string-contains? (filter-chars) str-to-check)))
+
+(defn valid-file-map? [map-to-check] (good-string? (:id map-to-check)))
 
 (defn gen-listing
   [cm user path filter-files include-files]
@@ -211,9 +214,16 @@
   (log/debug (str "create " user " " path))
   (with-jargon (jargon-config) [cm]
     (let [fixed-path (ft/rm-last-slash path)]
+      (when-not (good-string? fixed-path)
+        (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+                 :path path}))
       (validators/user-exists cm user)
       (validators/path-writeable cm user (ft/dirname fixed-path))
       (validators/path-not-exists cm fixed-path)
+
+      (when-not (good-string? fixed-path)
+        (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+                 :path path}))
 
       (mkdir cm fixed-path)
       (set-owner cm fixed-path user)

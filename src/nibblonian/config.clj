@@ -37,7 +37,7 @@
    (get @props "nibblonian.app.use-trash")))
 
 (defn filter-chars []
-  (get @props "nibblonian.app.filter-chars"))
+  (str (get @props "nibblonian.app.filter-chars") "\\"))
 
 (defn listen-port []
   (Integer/parseInt (get @props "nibblonian.app.listen-port")))
