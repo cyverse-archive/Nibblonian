@@ -798,6 +798,10 @@
                  :paths (filterv home-matcher paths)}))
 
       (doseq [p paths]
+        (let [path-tickets (mapv :ticket-id (ticket-ids-for-path cm user p))]
+          (doseq [path-ticket path-tickets]
+            (delete-ticket cm user path-ticket)))
+
         (if-not (.startsWith p (user-trash-dir cm user))
           (move-to-trash cm p user)
           (delete cm p)))
