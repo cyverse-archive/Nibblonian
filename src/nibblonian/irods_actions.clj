@@ -955,3 +955,11 @@
 
     {:tickets
      (apply merge (mapv #(hash-map %1 (ticket-ids-for-path cm user %1)) paths))}))
+
+(defn paths-contain-char
+  [paths char]
+  (when-not (good-string? char)
+    (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+             :character char}))
+
+  (apply merge (map #(hash-map %1 (not (nil? (re-seq (re-pattern char) %1)))) paths)))

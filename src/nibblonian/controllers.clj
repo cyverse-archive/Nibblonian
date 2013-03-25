@@ -684,3 +684,16 @@
   (let [user  (query-param request "user")
         paths (:paths (:body request))]
     (irods-actions/list-tickets-for-paths user paths)))
+
+(defn do-paths-contain-space
+  [request]
+  (log/debug "do-path-contain-space")
+
+  (when-not (valid-body? request {:paths sequential?})
+    (bad-body request {:paths sequential?}))
+
+  (when-not (every? true? (mapv string? (:paths (:body request))))
+    (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "paths"}))
+
+  (let [paths (:paths (:body request))]
+    {:paths (irods-actions/paths-contain-char paths " ")}))

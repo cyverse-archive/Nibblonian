@@ -126,6 +126,9 @@
   (GET "/user-trash-dir" request
        (trap "user-trash-dir" do-user-trash request))
 
+  (POST "/paths-contain-space" request
+        (trap "paths-contain-space" do-paths-contain-space request))
+
   (DELETE "/trash" request
           (trap "delete-trash" do-delete-trash request))
 
