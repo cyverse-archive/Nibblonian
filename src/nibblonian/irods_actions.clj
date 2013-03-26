@@ -975,7 +975,9 @@
 
 (defn all-parent-dirs
   [user paths]
-  (vec (apply set/union (map #(set (parent-dirs user %1)) paths))))
+  (sort-by
+   #(count (string/split %1 #"/")) >
+   (vec (apply set/union (map #(set (parent-dirs user %1)) paths)))))
 
 (defn looped-new-name
   "Iterates over the path, appending a _# to the end until a path that doesn't already exist is
