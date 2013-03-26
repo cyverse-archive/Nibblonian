@@ -697,3 +697,20 @@
 
   (let [paths (:paths (:body request))]
     {:paths (irods-actions/paths-contain-char paths " ")}))
+
+(defn do-substitute-spaces
+  [request]
+  (log/debug "do-substitute-spaces")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:paths sequential?})
+    (bad-body request {:paths sequential?}))
+
+  (when-not (every? true? (mapv string? (:paths (:body request))))
+    (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "paths"}))
+
+  (let [paths (:paths (:body request))
+        user  (query-param request "user")]
+    (irods-actions/substitute-spaces user paths "_")))
