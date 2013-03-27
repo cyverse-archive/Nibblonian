@@ -129,8 +129,8 @@
   (POST "/paths-contain-space" request
         (trap "paths-contain-space" do-paths-contain-space request))
 
-  (POST "/substitute-spaces" request
-        (trap "substitute-spaces" do-substitute-spaces request))
+  (POST "/replace-spaces" request
+        (trap "replace-spaces" do-replace-spaces request))
 
   (DELETE "/trash" request
           (trap "delete-trash" do-delete-trash request))

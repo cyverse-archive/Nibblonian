@@ -698,7 +698,7 @@
   (let [paths (:paths (:body request))]
     {:paths (irods-actions/paths-contain-char paths " ")}))
 
-(defn do-substitute-spaces
+(defn do-replace-spaces
   [request]
   (log/debug "do-substitute-spaces")
 
@@ -713,4 +713,4 @@
 
   (let [paths (:paths (:body request))
         user  (query-param request "user")]
-    (irods-actions/substitute-spaces user paths "_")))
+    (irods-actions/replace-spaces user paths "_")))

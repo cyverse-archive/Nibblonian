@@ -1020,7 +1020,7 @@
   [retmap new-char]
   (into {} (map #(hash-map (first %1) (string/replace (last %1) #" " new-char)) (seq retmap))))
 
-(defn substitute-spaces
+(defn replace-spaces
   "Generates new paths by replacing all spaces with new-char."
   [user paths new-char]
   (with-jargon (jargon-config) [cm]
