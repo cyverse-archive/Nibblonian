@@ -94,6 +94,13 @@
   [cm user path]
   (owns? cm user path))
 
+(defn user-owns-path
+  [cm user path]
+  (when-not (owns? cm user path)
+    (throw+ {:error_code ERR_NOT_OWNER
+             :user user
+             :path path})))
+
 (defn user-owns-paths
   [cm user paths]
   (let [belongs-to? (partial ownage? cm user)]

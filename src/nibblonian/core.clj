@@ -14,7 +14,7 @@
          session
          stacktrace]
         [slingshot.slingshot :only [try+ throw+]])
-  (:require [clojure.tools.cli :as cli] 
+  (:require [clojure.tools.cli :as cli]
             [compojure.route :as route]
             [compojure.handler :as handler]
             [nibblonian.query-params :as qp]
@@ -28,13 +28,13 @@
 
 (defroutes nibblonian-routes
   (GET "/" [] "Welcome to Nibblonian!")
-  
+
   (GET "/root" request
        (trap "root" do-root-listing request))
-  
+
   (GET "/home" request
        (trap "home" do-homedir request))
-  
+
   (POST "/exists" request
         (trap "exists" do-exists request))
 
@@ -43,56 +43,56 @@
 
   (POST "/download" request
         (trap "download" do-download request))
-  
+
   (GET "/display-download" request
        (trap "display-download" do-special-download request))
-  
+
   (GET "/upload" request
        (trap "upload"  do-upload request))
-  
+
   (GET "/directory" request
        (trap "list-dir" do-directory request))
-  
+
   (POST "/directory/create" request
         (trap "create"  do-create request))
 
   (POST "/rename" request
         (trap "rename" do-rename request))
-  
+
   (POST "/delete" request
         (trap "delete" do-delete request))
 
   (POST "/move" request
         (trap "move" do-move request))
-  
+
   (GET "/file/download" request
-       (trap "download" 
+       (trap "download"
               do-download request))
-  
+
   (GET "/file/preview" request
-       (trap "preview" 
+       (trap "preview"
              do-preview request))
-  
+
   (GET "/file/manifest" request
-       (trap "manifest" 
+       (trap "manifest"
              do-manifest request))
-  
+
   (GET "/metadata" request
-       (trap "get-metadata" 
+       (trap "get-metadata"
              do-metadata-get request))
-  
+
   (POST "/metadata" request
-        (trap "set-metadata" 
+        (trap "set-metadata"
               do-metadata-set request))
-  
+
   (DELETE "/metadata" request
-          (trap "delete-metadata" 
+          (trap "delete-metadata"
                 do-metadata-delete request))
 
   (POST "/metadata-batch" request
-        (trap "set-metadata-batch" 
+        (trap "set-metadata-batch"
               do-metadata-batch-set request))
-  
+
   (POST "/share" request
         (trap "share" do-share request))
 
@@ -101,10 +101,10 @@
 
   (POST "/user-permissions" request
        (trap "user-permissions" do-user-permissions request))
-  
+
   (GET "/groups" request
        (trap "groups" do-groups request))
-       
+
   (GET "/quota" request
        (trap "quota-list" do-quota request))
 
@@ -126,9 +126,15 @@
   (GET "/user-trash-dir" request
        (trap "user-trash-dir" do-user-trash request))
 
+  (POST "/paths-contain-space" request
+        (trap "paths-contain-space" do-paths-contain-space request))
+
+  (POST "/replace-spaces" request
+        (trap "replace-spaces" do-replace-spaces request))
+
   (DELETE "/trash" request
           (trap "delete-trash" do-delete-trash request))
-  
+
   (route/not-found "Not Found!"))
 
 (defn site-handler [routes]
@@ -144,16 +150,16 @@
   [args]
   (cli/cli
    args
-    ["-c" "--config" 
-     "Set the local config file to read from. Bypasses Zookeeper" 
+    ["-c" "--config"
+     "Set the local config file to read from. Bypasses Zookeeper"
      :default nil]
-    ["-h" "--help" 
-     "Show help." 
-     :default false 
+    ["-h" "--help"
+     "Show help."
+     :default false
      :flag true]
-    ["-p" "--port" 
-     "Set the port to listen on." 
-     :default 31370 
+    ["-p" "--port"
+     "Set the port to listen on."
+     :default 31370
      :parse-fn #(Integer. %)]))
 
 (def app
@@ -161,7 +167,7 @@
 
 (defn -main
   [& args]
-  
+
   (let [[opts args help-str] (parse-args args)]
     (cond
       (:help opts)
@@ -171,5 +177,5 @@
     (if (:config opts)
       (local-init (:config opts))
       (init))
-  
+
     (jetty/run-jetty app {:port (listen-port)})))

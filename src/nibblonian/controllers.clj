@@ -123,10 +123,12 @@
         user-root-list (partial irods-actions/root-listing user)
         user-trash-dir (irods-actions/user-trash-dir user)]
     {:roots
-     [(user-root-list uhome)
-      (user-root-list (community-data))
-      (user-root-list (irods-home))
-      (user-root-list user-trash-dir true)]}))
+     (remove
+      nil?
+      [(user-root-list uhome)
+       (user-root-list (community-data))
+       (user-root-list (irods-home))
+       (user-root-list user-trash-dir true)])}))
 
 (defn do-rename
   "Performs a rename.
@@ -682,3 +684,33 @@
   (let [user  (query-param request "user")
         paths (:paths (:body request))]
     (irods-actions/list-tickets-for-paths user paths)))
+
+(defn do-paths-contain-space
+  [request]
+  (log/debug "do-path-contain-space")
+
+  (when-not (valid-body? request {:paths sequential?})
+    (bad-body request {:paths sequential?}))
+
+  (when-not (every? true? (mapv string? (:paths (:body request))))
+    (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "paths"}))
+
+  (let [paths (:paths (:body request))]
+    {:paths (irods-actions/paths-contain-char paths " ")}))
+
+(defn do-replace-spaces
+  [request]
+  (log/debug "do-substitute-spaces")
+
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+
+  (when-not (valid-body? request {:paths sequential?})
+    (bad-body request {:paths sequential?}))
+
+  (when-not (every? true? (mapv string? (:paths (:body request))))
+    (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD :field "paths"}))
+
+  (let [paths (:paths (:body request))
+        user  (query-param request "user")]
+    (irods-actions/replace-spaces user paths "_")))

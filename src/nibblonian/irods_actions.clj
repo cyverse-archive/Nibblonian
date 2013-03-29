@@ -9,7 +9,7 @@
             [clojure.string :as string]
             [nibblonian.validators :as validators]
             [nibblonian.riak :as riak])
-  (:use [clj-jargon.jargon :exclude [init]]
+  (:use [clj-jargon.jargon :exclude [init list-dir] :as jargon]
         clojure-commons.error-codes
         [nibblonian.config :exclude [init]]
         [slingshot.slingshot :only [try+ throw+]])
@@ -70,19 +70,26 @@
 
 (defn sharing? [abs] (= (irods-home) abs))
 (defn community? [abs] (= (community-data) abs))
-(defn trash-base-dir [] (ft/path-join "/" (irods-zone) "trash" "home" (irods-user)))
-(defn user-trash-dir [user] (ft/path-join (trash-base-dir) user))
+(defn user-trash-dir
+  ([user]
+     (with-jargon (jargon-config) [cm]
+       (user-trash-dir cm user)))
+  ([cm user]
+     (trash-base-dir cm user)))
 
 (defn user-trash-dir?
-  [user path-to-check]
-  (= (ft/rm-last-slash path-to-check)
-     (ft/rm-last-slash (user-trash-dir user))))
+  ([user path-to-check]
+     (with-jargon (jargon-config) [cm]
+       (user-trash-dir? cm user path-to-check)))
+  ([cm user path-to-check]
+     (= (ft/rm-last-slash path-to-check)
+        (ft/rm-last-slash (user-trash-dir cm user)))))
 
 (defn id->label
   "Generates a label given a listing ID (read as absolute path)."
-  [user id]
+  [cm user id]
   (cond
-   (user-trash-dir? user id)
+   (user-trash-dir? cm user id)
    "Trash"
 
    (sharing? (ft/add-trailing-slash id))
@@ -100,40 +107,12 @@
         stat    (.initializeObjStatForFile list-entry)]
     (hash-map
      :id            abspath
-     :label         (id->label user abspath)
+     :label         (id->label cm user abspath)
      :permissions   (collection-perm-map cm user abspath)
      :hasSubDirs    true
      :date-created  (date-created-from-stat stat)
      :date-modified (date-mod-from-stat stat)
      :file-size     (size-from-stat stat))))
-
-(defn file-map-entry
-  [cm user list-entry]
-  (let [abspath (.getAbsolutePath list-entry)
-        stat    (.initializeObjStatForFile list-entry)]
-    (hash-map
-      :id            abspath
-      :label         (ft/basename abspath)
-      :permissions   (dataobject-perm-map cm user abspath)
-      :date-created  (date-created-from-stat stat)
-      :date-modified (date-mod-from-stat stat)
-      :file-size     (size-from-stat stat))))
-
-(defn list-dirs
-  [cm user list-entries dirpath filter-files]
-  (filterv
-    #(and (get-in %1 [:permissions :read])
-          (not (contains? filter-files (:id %1)))
-          (not (contains? filter-files (:label %1))))
-    (map #(dir-map-entry cm user %1) list-entries)))
-
-(defn list-files
-  [cm user list-entries dirpath filter-files]
-  (filterv
-    #(and (get-in %1 [:permissions :read])
-          (not (contains? filter-files (:id %1)))
-          (not (contains? filter-files (:label %1))))
-    (map #(file-map-entry cm user %1) list-entries)))
 
 (defn list-in-dir
   [cm fixed-path]
@@ -143,49 +122,31 @@
       (file cm fixed-path)
       ffilter)))
 
-(defn partition-files-folders
-  [cm fixed-path]
-  (group-by
-    #(.isDirectory %1)
-    (list-in-dir cm fixed-path)))
-
 (defn string-contains?
   [container-str str-to-check]
   (pos? (count (set/intersection (set container-str) (set str-to-check)))))
 
-(defn valid-file-map?
-  [map-to-check]
-  (not (string-contains? (filter-chars) (:id map-to-check))))
+(defn good-string?
+  [str-to-check]
+  (log/warn "filter-chars: " (filter-chars))
+  (not (string-contains? (filter-chars) str-to-check)))
 
-(defn file-listing
-  [cm user file-entries fixed-path filter-files]
-  (filterv valid-file-map? (list-files cm user file-entries fixed-path filter-files)))
-
-(defn dir-listing
-  [cm user file-entries fixed-path filter-files]
-  (filterv valid-file-map? (list-dirs cm user file-entries fixed-path filter-files)))
+(defn valid-file-map? [map-to-check] (good-string? (:id map-to-check)))
 
 (defn gen-listing
   [cm user path filter-files include-files]
-  (let [fixed-path   (ft/rm-last-slash path)
-        ff           (set filter-files)
-        parted-files (partition-files-folders cm fixed-path)
-        dir-entries  (or (get parted-files true) (vector))
-        file-entries (or (get parted-files false) (vector))
-        dirs         (dir-listing cm user dir-entries fixed-path ff)
-        add-files    #(if include-files
-                        (assoc %1 :files (file-listing cm user file-entries fixed-path ff))
-                        %1)]
-    (-> {}
-        (assoc
-            :id            path
-            :label         (id->label user path)
-            :hasSubDirs    true
-            :date-created  (created-date cm path)
-            :date-modified (lastmod-date cm path)
-            :permissions   (collection-perm-map cm user path)
-            :folders       dirs)
-        add-files)))
+  (let [fixed-path     (ft/rm-last-slash path)
+        ff             (set filter-files)
+        listing        (jargon/list-dir cm user path :include-files include-files)
+        filter-listing (fn [l] (remove #(or (ff (:id %))
+                                            (ff (:label %))
+                                            (not (valid-file-map? %))) l))]
+    (if include-files
+      (assoc listing
+        :folders (filter-listing (:folders listing))
+        :files   (filter-listing (:files listing)))
+      (assoc listing
+        :folders (filter-listing (:folders listing))))))
 
 (defn list-dir
   "A non-recursive listing of a directory. Contains entries for files.
@@ -225,21 +186,20 @@
      (root-listing user root-path false))
 
   ([user root-path set-own?]
-    (with-jargon (jargon-config) [cm]
-      (validators/user-exists cm user)
+     (with-jargon (jargon-config) [cm]
+       (validators/user-exists cm user)
 
-      (when (and (= root-path (user-trash-dir user)) (not (exists? cm root-path)))
-        (mkdir cm root-path)
-        (set-permissions cm user root-path false false true))
+       (when (and (= root-path (user-trash-dir cm user)) (not (exists? cm root-path)))
+         (mkdir cm root-path)
+         (set-permissions cm user root-path false false true))
 
-      (validators/path-exists cm root-path)
+       (validators/path-exists cm root-path)
 
-      (when (and set-own? (not (owns? cm user root-path)))
-        (set-permissions cm user root-path false false true))
+       (when (and set-own? (not (owns? cm user root-path)))
+         (set-permissions cm user root-path false false true))
 
-      (validators/path-readable cm user root-path)
-
-      (dir-map-entry cm user (file cm root-path)))))
+       (when-let [res (jargon/list-dir cm user root-path :include-subdirs false)]
+         (assoc res :label (id->label cm user (:id res)))))))
 
 (defn create
   "Creates a directory at 'path' in iRODS and sets the user to 'user'.
@@ -254,6 +214,9 @@
   (log/debug (str "create " user " " path))
   (with-jargon (jargon-config) [cm]
     (let [fixed-path (ft/rm-last-slash path)]
+      (when-not (good-string? fixed-path)
+        (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+                 :path path}))
       (validators/user-exists cm user)
       (validators/path-writeable cm user (ft/dirname fixed-path))
       (validators/path-not-exists cm fixed-path)
@@ -281,7 +244,7 @@
       (validators/user-owns-paths cm user sources)
       (validators/path-writeable cm user dest)
       (validators/no-paths-exist cm dest-paths)
-      (move-all cm sources dest)
+      (move-all cm sources dest :user user :admin-users (irods-admins))
       {:sources sources :dest dest})))
 
 (defn rename-path
@@ -290,10 +253,10 @@
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     (validators/path-exists cm source)
-    (validators/ownage? cm user source)
+    (validators/user-owns-path cm user source)
     (validators/path-not-exists cm dest)
 
-    (let [result (move cm source dest)]
+    (let [result (move cm source dest :user user :admin-users (irods-admins))]
       (when-not (nil? result)
         (throw+ {:error_code ERR_INCOMPLETE_RENAME
                  :paths result
@@ -566,55 +529,63 @@
 
 (def shared-with-attr "ipc-contains-obj-shared-with")
 
-(defn number-of-objs-shared-with-user
-  "Returns the number of objects shared with a particular user."
-  [cm fpath shared-with]
-  (let [results (get-avus-by-collection cm fpath shared-with shared-with-attr)]
-    (cond
-     (not (pos? (count results)))             0
-     (not (contains? (first results) :value)) 0
-     (nil? (:value (first results)))          0
-     :else                                    (Integer/parseInt (:value (first results))))))
-
 (defn delete-avu
   "Deletes the provided AVU from the path."
   [cm fpath avu-map]
   (.deleteAVUMetadata (:collectionAO cm) fpath (map2avu avu-map)))
 
 (defn add-user-shared-with
-  "Adds 'ipc-contains-obj-shared-with' AVU to the specified object if it's not there and increments
-   the number of objects shared if it does. The number of objs shared is stored in the units field
-   of the AVU."
+  "Adds 'ipc-contains-obj-shared-with' AVU for a user to an object if it's not there."
   [cm fpath shared-with]
-  (println fpath)
-  (println shared-with)
-  (let [inc-obj-shared (str (inc (number-of-objs-shared-with-user cm fpath shared-with)))]
-    (println inc-obj-shared)
-    (println fpath)
-    (set-metadata cm fpath shared-with inc-obj-shared shared-with-attr)))
+  (when (empty? (get-avus-by-collection cm fpath shared-with shared-with-attr))
+    (set-metadata cm fpath shared-with shared-with shared-with-attr)))
 
-(defn dec-user-shared-with
-  "Decrements the number of objs shared with a specific user and removes the entire AVU if that
-   number isn't positive."
+(defn remove-user-shared-with
+  "Removes 'ipc-contains-obj-shared-with' AVU for a user from an object if it's there."
   [cm fpath shared-with]
-  (log/debug "entered dec-user-shared-with")
-  (let [curr-val (number-of-objs-shared-with-user cm fpath shared-with)
-        new-val  (dec curr-val)]
-    (log/debug "dec-user-shared-with - curr-val: " curr-val)
-    (log/debug "dec-user-shared-with - new-val: " new-val)
-    (if-not (pos? new-val)
-      (do
-        (log/debug "dec-user-shared-with - before delete-avu")
-        (delete-avu cm fpath (first (get-avus-by-collection cm fpath shared-with shared-with-attr)))
-        (log/debug "dec-user-shared-with - after delete-avu"))
-      (do
-        (log/debug "dec-user-shared-with - before set-metadata")
-        (set-metadata cm fpath shared-with (str new-val) shared-with-attr)
-        (log/debug "dec-user-shared-with - after set-metadata")))))
+  (when-not (empty? (get-avus-by-collection cm fpath shared-with shared-with-attr))
+    (delete-metadata cm fpath shared-with)))
 
 (defn shared?
-  [cm share-with fpath]
-  (:read (permissions cm share-with fpath)))
+  ([cm share-with fpath]
+     (:read (permissions cm share-with fpath)))
+  ([cm share-with fpath desired-perms]
+     (let [curr-perms (permissions cm share-with fpath)]
+       (and (:read curr-perms) (= curr-perms desired-perms)))))
+
+(defn- skip-share
+  [user path reason]
+  {:user    user
+   :path    path
+   :reason  reason
+   :skipped true})
+
+(defn- share-path
+  "Shares a path with a user. This consists of the following steps:
+
+       1. The parent directories up to the sharer's home directory need to be marked as readable
+          by the sharee. Othwerwise, any files that are shared will be orphaned in the UI.
+
+       2. If the shared item is a directory then the inherit bit needs to be set so that files
+          that are uploaded into the directory will also be shared.
+
+       3. The permissions are set on the item being shared. This is done recursively in case the
+          item being shared is a directory."
+  [cm share-with {read-perm :read write-perm :write own-perm :own :as perms} fpath]
+  (let [base-dirs #{(ft/rm-last-slash (:home cm)) (trash-base-dir cm)}]
+    (process-parent-dirs (partial set-readable cm share-with true) #(not (base-dirs %)) fpath))
+  (when (is-dir? cm fpath)
+    (.setAccessPermissionInherit (:collectionAO cm) (:zone cm) fpath true))
+  (set-permissions cm share-with fpath read-perm write-perm own-perm true)
+  {:user share-with :path fpath})
+
+(defn- share-paths
+  [cm user share-withs fpaths perms]
+  (for [share-with share-withs
+        fpath      fpaths]
+    (cond (= user share-with)                 (skip-share share-with fpath :share-with-self)
+          (shared? cm share-with fpath perms) (skip-share share-with fpath :already-shared)
+          :else                               (share-path cm share-with perms fpath))))
 
 (defn share
   [user share-withs fpaths perms]
@@ -624,45 +595,15 @@
     (validators/all-paths-exist cm fpaths)
     (validators/user-owns-paths cm user fpaths)
 
-    (doseq [share-with share-withs]
-      (doseq [fpath fpaths]
-        (let [read-perm  (:read perms)
-              write-perm (:write perms)
-              own-perm   (:own perms)
-              base-dir   (ft/path-join "/" (irods-zone))]
-
-          ;;Parent directories need to be readable, otherwise
-          ;;files and directories that are shared will be
-          ;;orphaned in the UI.
-          (loop [dir-path (ft/dirname fpath)]
-            (when-not (= dir-path base-dir)
-              (let [curr-perms (permissions cm share-with dir-path)
-                    curr-read  (:read curr-perms)
-                    curr-write (:write curr-perms)
-                    curr-own   (:own curr-perms)]
-                (set-permissions cm share-with dir-path true curr-write curr-own)
-                (recur (ft/dirname dir-path)))))
-
-          (when-not (shared? cm share-with fpath)
-            ;;Mark the user's home directory as having a file shared with the user.
-            (add-user-shared-with cm (ft/path-join base-dir "home" user) share-with)
-
-            ;;If the shared item is a directory, then it needs the inheritance
-            ;;bit set. Otherwise, any files that are added to the directory will
-            ;;not be shared.
-            (when (is-dir? cm fpath)
-              (.setAccessPermissionInherit (:collectionAO cm) (irods-zone) fpath true))
-
-            ;;Set the actual permissions on the file/directory.
-            (set-permissions cm share-with fpath read-perm write-perm own-perm false)))))
-
-    {:user share-withs
-     :path fpaths
-     :permissions perms}))
-
-(defn contains-accessible-obj?
-  [cm user dpath]
-  (some #(is-readable? cm user %1) (list-paths cm dpath)))
+    (let [keyfn      #(if (:skipped %) :skipped :succeeded)
+          share-recs (group-by keyfn (share-paths cm user share-withs fpaths perms))
+          sharees    (map :user (:succeeded share-recs))
+          home-dir   (ft/path-join (:home cm) user)]
+      (dorun (map (partial add-user-shared-with cm (ft/path-join (:home cm) user)) sharees))
+      {:user        sharees
+       :path        fpaths
+       :skipped     (map #(dissoc % :skipped) (:skipped share-recs))
+       :permissions perms})))
 
 (defn contains-subdir?
   [cm dpath]
@@ -675,6 +616,53 @@
 (defn some-subdirs-readable?
   [cm user parent-path]
   (some #(is-readable? cm user %1) (subdirs cm parent-path)))
+
+(defn- remove-inherit-bit?
+  [cm user fpath]
+  (empty? (remove (comp (conj (irods-admins) user) :user)
+                  (list-user-perms cm fpath))))
+
+(defn- unshare-dir
+  "Removes the inherit bit from a directory if the directory is no longer shared with any accounts
+   other than iRODS administrative accounts."
+  [cm user unshare-with fpath]
+  (when (remove-inherit-bit? cm user fpath)
+    (.setAccessPermissionToNotInherit (:collectionAO cm) (:zone cm) fpath true)))
+
+(defn- unshare-path
+  "Removes permissions for a user to access a path.  This consists of several steps:
+
+       1. Remove the access permissions for the user.  This is done recursively in case the path
+          being unshared is a directory.
+
+       2. If the item being unshared is a directory, perform any directory-specific unsharing
+          steps that are required.
+
+       3. Remove the user's read permissions for parent directories in which the user no longer has
+          access to any other files or subdirectories."
+  [cm user unshare-with fpath]
+  (let [base-dirs #{(ft/rm-last-slash (:home cm)) (trash-base-dir cm)}]
+    (remove-permissions cm unshare-with fpath)
+    (when (is-dir? cm fpath)
+      (unshare-dir cm user unshare-with fpath))
+    (process-parent-dirs (partial set-readable cm unshare-with false)
+                         #(and (not (base-dirs %))
+                               (not (contains-accessible-obj? cm unshare-with %)))
+                         fpath)
+    {:user unshare-with :path fpath}))
+
+(defn- unshare-paths
+  [cm user unshare-withs fpaths]
+  (for [unshare-with unshare-withs
+        fpath        fpaths]
+    (cond (= user unshare-with)           (skip-share unshare-with fpath :unshare-with-self)
+          (shared? cm unshare-with fpath) (unshare-path cm user unshare-with fpath)
+          :else                           (skip-share unshare-with fpath :not-shared))))
+
+(defn clean-up-unsharee-avus
+  [cm fpath unshare-with]
+  (when-not (shared? cm unshare-with fpath)
+    (remove-user-shared-with cm fpath unshare-with)))
 
 (defn unshare
   "Allows 'user' to unshare file 'fpath' with user 'unshare-with'."
@@ -692,48 +680,14 @@
     (log/debug "unshare - unshare-withs: " unshare-withs)
     (log/debug "unshare - fpaths: " fpaths)
 
-    (doseq [unshare-with unshare-withs]
-      (doseq [fpath fpaths]
-        (let [base-dir    (ft/path-join "/" (irods-zone) "home")
-              parent-path (ft/dirname fpath)]
-          (when (shared? cm unshare-with fpath)
-            (log/debug "unshare - removing permissions...")
-            (remove-permissions cm unshare-with fpath)
-            (log/debug "unshare - done removing permissions")
-
-            (log/debug "unshare - decrementing number of shared files/dirs")
-            (log/debug "unshare - number of shared objs: "
-                       (number-of-objs-shared-with-user cm (ft/path-join base-dir user) unshare-with))
-            (dec-user-shared-with cm (ft/path-join base-dir user) unshare-with)
-            (log/debug "unshare - done decrementing number of shared files/dirs")
-
-            (let [user-dir   (ft/path-join base-dir user)
-                  num-shared (number-of-objs-shared-with-user cm user-dir unshare-with)]
-              (when-not (pos? num-shared)
-                (log/debug "unshare - number of shared objects: " num-shared)
-                (log/debug "unshare - removing access on " user-dir " for " unshare-with)
-                (remove-permissions cm unshare-with user-dir)
-                (log/debug "unshare - done removing access on " user-dir " for " unshare-with))))
-
-          (log/debug "unshare - parent path: " parent-path)
-          (log/debug "unshare - contains-subdir? " (contains-subdir? cm parent-path))
-          (log/debug "unshare - some-subdirs-readable? " (some-subdirs-readable? cm unshare-with parent-path))
-
-          (when-not (and (contains-subdir? cm parent-path)
-                         (some-subdirs-readable? cm unshare-with parent-path))
-            (loop [dir-path parent-path]
-              (log/debug "unshare - dir-path: " dir-path)
-              (when-not (or (= dir-path base-dir)
-                            (contains-accessible-obj? cm unshare-with dir-path))
-                (log/debug "unshare - removing permissions")
-                (remove-permissions cm unshare-with dir-path)
-                (log/debug "unshare - done removing permissions.")
-                (recur (ft/dirname dir-path)))))
-
-          (log/debug "after removing permissions.")))))
-
-  {:user unshare-withs
-   :path fpaths})
+    (let [keyfn        #(if (:skipped %) :skipped :succeeded)
+          unshare-recs (group-by keyfn (unshare-paths cm user unshare-withs fpaths))
+          unsharees    (map :user (:succeeded unshare-recs))
+          home-dir     (ft/path-join (:home cm) user)]
+      (dorun (map (partial clean-up-unsharee-avus cm home-dir) unsharees))
+      {:user unsharees
+       :path fpaths
+       :skipped (map #(dissoc % :skipped) (:skipped unshare-recs))})))
 
 (defn list-of-homedirs-with-shared-files
   [cm user]
@@ -741,7 +695,7 @@
    #(let [stat (.getObjStat (:fileSystemAO cm) %1)]
       (hash-map
        :id            %1
-       :label         (id->label user %1)
+       :label         (id->label cm user %1)
        :hasSubDirs    true
        :date-created  (date-created-from-stat stat)
        :date-modified (date-mod-from-stat stat)
@@ -757,7 +711,7 @@
   (let [dirs (list-of-homedirs-with-shared-files cm user)]
     (hash-map
      :id            path
-     :label         (id->label user path)
+     :label         (id->label cm user path)
      :hasSubDirs    true
      :date-created  (created-date cm path)
      :date-modified (lastmod-date cm path)
@@ -799,7 +753,7 @@
   [user]
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
-    {:trash (user-trash-dir user)}))
+    {:trash (user-trash-dir cm user)}))
 
 (def alphanums (concat (range 48 58) (range 65 91) (range 97 123)))
 
@@ -808,34 +762,15 @@
   (apply str (take length (repeatedly #(char (rand-nth alphanums))))))
 
 (defn randomized-trash-path
-  [user path-to-inc]
+  [cm user path-to-inc]
   (ft/path-join
-   (user-trash-dir user)
+   (user-trash-dir cm user)
    (str (ft/basename path-to-inc) "." (rand-str 7))))
-
-#_(defn increment-path
-  [user path-to-inc attempts]
-  (ft/path-join
-   (user-trash-dir user)
-   (str (ft/basename path-to-inc) "." attempts)))
-
-#_(defn incremented-trash-path
-  [cm user p]
-  (loop [attempts 0]
-    (if (exists? cm (increment-path user p attempts))
-      (recur (inc attempts))
-      (randomized-increment-path user p attempts))))
-
-#_(defn generated-trash-path
-  [cm user p]
-  (let [file-basename (ft/basename p)
-        user-trash    (user-trash-dir user)]
-    (randomized-trash-path cm user p)))
 
 (defn move-to-trash
   [cm p user]
-  (let [trash-path (randomized-trash-path user p)]
-    (move cm p trash-path)
+  (let [trash-path (randomized-trash-path cm user p)]
+    (move cm p trash-path :user user :admin-users (irods-admins))
     (set-metadata cm trash-path "ipc-trash-origin" p IPCSYSTEM)))
 
 (defn delete-paths
@@ -859,7 +794,11 @@
                  :paths (filterv home-matcher paths)}))
 
       (doseq [p paths]
-        (if-not (.startsWith p (user-trash-dir user))
+        (let [path-tickets (mapv :ticket-id (ticket-ids-for-path cm user p))]
+          (doseq [path-ticket path-tickets]
+            (delete-ticket cm user path-ticket)))
+
+        (if-not (.startsWith p (user-trash-dir cm user))
           (move-to-trash cm p user)
           (delete cm p)))
 
@@ -870,6 +809,10 @@
   (if (attribute? cm p "ipc-trash-origin")
     (:value (first (get-attribute cm p "ipc-trash-origin")))
     (ft/path-join (user-home-dir user) (ft/basename p))))
+
+(defn restore-to-homedir?
+  [cm p]
+  (not (attribute? cm p "ipc-trash-origin")))
 
 (defn restoration-path
   [cm user path]
@@ -906,7 +849,8 @@
 
     (let [retval (atom (hash-map))]
       (doseq [path paths]
-        (let [fully-restored (restoration-path cm user path)]
+        (let [fully-restored      (restoration-path cm user path)
+              restored-to-homedir (restore-to-homedir? cm path)]
           (log/warn "Restoring " path " to " fully-restored)
 
           (validators/path-not-exists cm fully-restored)
@@ -922,10 +866,12 @@
           (validators/path-not-exists cm fully-restored)
 
           (log/warn fully-restored " does not exist. That's good.")
-          (move cm path fully-restored)
+          (move cm path fully-restored :user user :admin-users (irods-admins))
           (log/warn "Done moving " path " to " fully-restored)
 
-          (reset! retval (assoc @retval path fully-restored))))
+          (reset! retval
+                  (assoc @retval path {:restored-path fully-restored
+                                       :partial-restore restored-to-homedir}))))
       {:restored @retval})))
 
 (defn copy-path
@@ -959,7 +905,7 @@
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
 
-    (let [trash-dir  (user-trash-dir user)
+    (let [trash-dir  (user-trash-dir cm user)
           trash-list (mapv #(.getAbsolutePath %) (list-in-dir cm (ft/rm-last-slash trash-dir)))]
       (doseq [trash-path trash-list]
         (delete cm trash-path))
@@ -1005,3 +951,88 @@
 
     {:tickets
      (apply merge (mapv #(hash-map %1 (ticket-ids-for-path cm user %1)) paths))}))
+
+(defn paths-contain-char
+  [paths char]
+  (when-not (good-string? char)
+    (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+             :character char}))
+
+  (apply merge (map #(hash-map %1 (not (nil? (re-seq (re-pattern char) %1)))) paths)))
+
+(defn parent-dirs
+  [user path]
+  (let [pdirs (atom [])]
+    (process-parent-dirs
+     #(reset! pdirs (conj @pdirs %1))
+     #(and (not (nil? %1))
+           (not (= %1 (user-home-dir user)))) path)
+    @pdirs))
+
+(defn all-parent-dirs
+  [user paths]
+  (sort-by
+   #(count (string/split %1 #"/")) >
+   (vec (apply set/union (map #(set (parent-dirs user %1)) paths)))))
+
+(defn looped-new-name
+  "Iterates over the path, appending a _# to the end until a path that doesn't already exist is
+   found."
+  [cm path new-char]
+  (loop [idx 0]
+    (let [new-path (string/replace path #" " (str new-char "_" idx))]
+      (if-not (exists? cm new-path)
+        new-path
+        (recur (inc idx))))))
+
+(defn new-name
+  "Creates a new name for the given path by replacing all spaces with the provided new-char.
+   If the path is indicated to be a parent with the :parent flag, then the new name will NOT have
+   a _# appended to it if the name already exists."
+  [cm path new-char & {:keys [parent] :or {parent false}}]
+  (let [new-path (string/replace path #" " new-char)]
+    (if (or parent (not (exists? cm new-path)))
+      new-path
+      (looped-new-name cm path new-char))))
+
+(defn has-space?
+  "Returns a truthy value if the path contains a space somewhere in it."
+  [path]
+  (re-seq (re-pattern " ") path))
+
+(defn move-spacey-path
+  "Takes in a path and a new-char, replaces all spaces in the path with new-char, and returns a map
+   with the original path as the key and the new path as the value. If the path is a parent, then
+   the new name will not have a _# appended to it if it already exists."
+  [cm user path new-char & {:keys [parent] :or {parent false}}]
+  (when (has-space? (ft/basename path))
+    (let [new-basename (new-name cm (ft/basename path) new-char :parent parent)
+          new-path     (ft/path-join (ft/dirname path) new-basename)]
+      (if (and (not (exists? cm new-path)) (exists? cm path))
+        (move cm path new-path :user user :admin-users (irods-admins)))
+      {path new-path})))
+
+(defn fix-return-map
+  [retmap new-char]
+  (into {} (map #(hash-map (first %1) (string/replace (last %1) #" " new-char)) (seq retmap))))
+
+(defn replace-spaces
+  "Generates new paths by replacing all spaces with new-char."
+  [user paths new-char]
+  (with-jargon (jargon-config) [cm]
+    (validators/user-exists cm user)
+    (validators/all-paths-exist cm paths)
+    (validators/user-owns-paths cm user paths)
+
+    (when-not (good-string? new-char)
+      (throw+ {:error_code ERR_BAD_OR_MISSING_FIELD
+               :character new-char}))
+
+    (let [parent-dirs (all-parent-dirs user paths)]
+      (validators/user-owns-paths cm user parent-dirs)
+
+      (let [mv-base         #(move-spacey-path cm user %1 new-char :parent false)
+            mv-parent       #(move-spacey-path cm user %1 new-char :parent true)
+            basename-merges (apply merge (map mv-base paths))
+            parent-merges   (apply merge (map mv-parent parent-dirs))]
+        {:paths (fix-return-map basename-merges new-char)}))))
