@@ -134,6 +134,9 @@
 
   (DELETE "/trash" request
           (trap "delete-trash" do-delete-trash request))
+  
+  (POST "/read-chunk" request
+        (trap "read-chunk" do-read-chunk request))
 
   (route/not-found "Not Found!"))
 

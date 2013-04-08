@@ -714,3 +714,26 @@
   (let [paths (:paths (:body request))
         user  (query-param request "user")]
     (irods-actions/replace-spaces user paths "_")))
+
+(defn do-read-chunk
+  [request]
+  (log/debug "do-read-chunk")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (when-not (valid-body? request {:path string?})
+    (bad-body request {:path string?}))
+  
+  (when-not (valid-body? request {:position string?})
+    (bad-body request {:position string?}))
+  
+  (when-not (valid-body? request {:chunk-size string?})
+    (bad-body request {:chunk-size string?}))
+  
+  (let [user (query-param request "user")
+        body (:body request)
+        path (:path body)
+        pos  (Long/parseLong (:position body)) 
+        size (Long/parseLong (:chunk-size body))]
+    (irods-actions/read-file-chunk user path pos size)))

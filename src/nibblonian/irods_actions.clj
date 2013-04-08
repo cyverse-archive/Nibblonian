@@ -1036,3 +1036,18 @@
             basename-merges (apply merge (map mv-base paths))
             parent-merges   (apply merge (map mv-parent parent-dirs))]
         {:paths (fix-return-map basename-merges new-char)}))))
+
+(defn read-file-chunk
+  "Reads a chunk of a file starting at 'position' and reading a chunk of length 'chunk-size'."
+  [user path position chunk-size]
+  (with-jargon (jargon-config) [cm]
+    (validators/user-exists cm user)
+    (validators/path-exists cm path)
+    (validators/path-readable cm user path)
+    
+    {:path       path
+     :user       user
+     :start      (str position)
+     :chunk-size (str chunk-size)
+     :file-size  (str (file-size cm path))
+     :chunk      (read-at-position cm path position chunk-size)}))
