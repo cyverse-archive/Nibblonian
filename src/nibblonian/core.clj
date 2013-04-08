@@ -137,6 +137,9 @@
   
   (POST "/read-chunk" request
         (trap "read-chunk" do-read-chunk request))
+  
+  (POST "/overwrite-chunk" request
+        (trap "overwrite-chunk" do-overwrite-chunk request))
 
   (route/not-found "Not Found!"))
 

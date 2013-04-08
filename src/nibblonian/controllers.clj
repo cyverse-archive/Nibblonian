@@ -737,3 +737,25 @@
         pos  (Long/parseLong (:position body)) 
         size (Long/parseLong (:chunk-size body))]
     (irods-actions/read-file-chunk user path pos size)))
+
+(defn do-overwrite-chunk
+  [request]
+  (log/debug "do-overwrite-chunk")
+  
+  (when-not (query-param? request "user")
+    (bad-query "user"))
+  
+  (when-not (valid-body? request {:path string?})
+    (bad-body request {:path string?}))
+  
+  (when-not (valid-body? request {:position string?})
+    (bad-body request {:position string?}))
+  
+  (when-not (valid-body? request {:update string?})
+    (bad-body request {:update string?}))
+  
+  (let [user (query-param request "user")
+        body (:body request)
+        path (:path body)
+        pos  (Long/parseLong (:position body))]
+    (irods-actions/overwrite-file-chunk user path pos (:update body))))

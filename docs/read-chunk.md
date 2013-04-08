@@ -5,7 +5,7 @@ __URL Path__: /read-chunk
 
 __HTTP Method__: POST
 
-__Action__: "rename"
+__Action__: "read-chunk"
 
 __Error Codes___: ERR_DOES_NOT_EXIST, ERR_NOT_READABLE, ERR_NOT_A_USER
 

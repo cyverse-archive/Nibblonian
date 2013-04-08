@@ -1051,3 +1051,18 @@
      :chunk-size (str chunk-size)
      :file-size  (str (file-size cm path))
      :chunk      (read-at-position cm path position chunk-size)}))
+
+(defn overwrite-file-chunk
+  "Writes a chunk of a file starting at 'position' and extending to the length of the string."
+  [user path position update-string]
+  (with-jargon (jargon-config) [cm]
+    (validators/user-exists cm user)
+    (validators/path-exists cm path)
+    (validators/path-is-file cm path)
+    (validators/path-writeable cm user path)
+    (overwrite-at-position cm path position update-string)
+    {:path       path
+     :user       user
+     :start      (str position)
+     :chunk-size (str (count (.getBytes update-string)))
+     :file-size  (str (file-size cm path))}))
