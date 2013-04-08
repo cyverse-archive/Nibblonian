@@ -1043,6 +1043,7 @@
   (with-jargon (jargon-config) [cm]
     (validators/user-exists cm user)
     (validators/path-exists cm path)
+    (validators/path-is-file cm path)
     (validators/path-readable cm user path)
     
     {:path       path
