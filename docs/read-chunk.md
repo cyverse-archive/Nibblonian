@@ -13,6 +13,7 @@ __Request Query Parameters___:
 * user - the iRODS username of the user making the request.
 
 __Request Body__:
+
     {
         "path"       : "/iplant/home/wregglej/testfile",
         "position"   : "20",
@@ -20,6 +21,7 @@ __Request Body__:
     }
 
 __Response__:
+
     {
         "action"     : "read-chunk",
         "status"     : "success",
@@ -32,6 +34,7 @@ __Response__:
     }
 
 __Curl Command__:
+
     curl -H "Content-Type:application/json" -d '{"path" : "/iplant/home/wregglej/testfile", "position" : "20", "chunk-size" : "7"}' http://127.0.0.1:31360/read-chunk?user=wregglej
 
 Notes:
