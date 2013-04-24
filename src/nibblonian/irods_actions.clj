@@ -8,7 +8,8 @@
             [clojure-commons.file-utils :as ft]
             [clojure.string :as string]
             [nibblonian.validators :as validators]
-            [nibblonian.riak :as riak])
+            [nibblonian.riak :as riak]
+            [cemerick.url :as url])
   (:use [clj-jargon.jargon :exclude [init list-dir] :as jargon]
         clojure-commons.error-codes
         [nibblonian.config :exclude [init]]
@@ -403,7 +404,15 @@
       (delete-metadata cm path attr))
     {:path path :user user}))
 
-(defn path-exists? [user path] (with-jargon (jargon-config) [cm] (exists? cm path)))
+(defn url-encoded?
+  [string-to-check]
+  (re-seq #"\%[A-Fa-f0-9]{2}" string-to-check))
+
+(defn path-exists? [user path] 
+  (with-jargon (jargon-config) [cm]
+    (if (url-encoded? path)
+      (exists? cm (url/url-decode path))
+      (exists? cm path))))
 
 (defn list-user-perms-for-path
   [cm user path]
