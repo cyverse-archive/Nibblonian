@@ -70,7 +70,9 @@
   (str (.getObjSize stat)))
 
 (defn sharing? [abs] (= (irods-home) abs))
+
 (defn community? [abs] (= (community-data) abs))
+
 (defn user-trash-dir
   ([user]
      (with-jargon (jargon-config) [cm]
