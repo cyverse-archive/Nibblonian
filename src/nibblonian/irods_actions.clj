@@ -741,7 +741,8 @@
     (when-not (is-readable? cm user root-dir)
       (set-permissions cm user (ft/rm-last-slash root-dir) true false false))
 
-    (assoc (sharing-data cm user root-dir) :label "Shared")))
+    (let [listing (sharing-data cm user root-dir)]
+      (assoc listing :label (id->label cm user (:id listing))))))
 
 (defn get-quota
   [user]
