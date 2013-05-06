@@ -140,7 +140,8 @@
   [cm user path filter-files include-files]
   (let [fixed-path     (ft/rm-last-slash path)
         ff             (set filter-files)
-        listing        (jargon/list-dir cm user path :include-files include-files)
+        fix-label      #(assoc %1 :label (id->label cm user (:id %1)))
+        listing        (fix-label (jargon/list-dir cm user path :include-files include-files))
         filter-listing (fn [l] (remove #(or (ff (:id %))
                                             (ff (:label %))
                                             (not (valid-file-map? %))) l))]
