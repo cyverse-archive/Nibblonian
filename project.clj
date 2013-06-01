@@ -5,7 +5,7 @@
                  [org.clojure/java.classpath "0.1.0"]
                  [org.clojure/data.codec "0.1.0"]
                  [org.iplantc/clojure-commons "1.4.1-SNAPSHOT"]
-                 [org.iplantc/clj-jargon "0.2.4-SNAPSHOT"]
+                 [org.iplantc/clj-jargon "0.2.5-SNAPSHOT"]
                  [cheshire "5.0.1"]
                  [clj-http "0.3.2"]
                  [com.cemerick/url "0.0.7"]
